@@ -96,7 +96,21 @@ export class App {
       };
     }
 
-    const resumed = this.persistence.loadInProgress();
+    /*
+     * Launched from the pUZles hub, always open on Home.
+     *
+     * The hub is a launcher: you pick a game from a list, and every other game in it
+     * lands on its own menu. Resuming straight into a board made pUZlink the odd one
+     * out — you tapped pUZlink and got a half-finished puzzle instead of the menu.
+     *
+     * Standalone, resuming is still the right behaviour and is untouched. Either way
+     * the saved board stays in storage: it is not opened for you, not discarded.
+     */
+    const fromHub =
+      new URLSearchParams(window.location.search).get('from') === 'hub' ||
+      (import.meta.env as Record<string, string | undefined>).VITE_HUB === '1';
+
+    const resumed = fromHub ? null : this.persistence.loadInProgress();
     const target = resumed ? locateLevel(resumed.levelId) : null;
     if (resumed && target) {
       this.machine.toPlaying(target.tier, target.index);
