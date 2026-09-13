@@ -70,12 +70,83 @@ ol {
   --space-6: 32px;
   --space-7: 48px;
 
+  /*
+   * How far the page has to stay clear of the top edge. On the web and on iOS
+   * that is the safe-area inset; inside the Android app MainActivity measures
+   * the status bar and overwrites this property on the root element, because
+   * Android fills env(safe-area-inset-top) from the display cutout only and
+   * reports 0 for a status bar in ordinary screen space.
+   */
+  --inset-top: env(safe-area-inset-top, 0px);
+
   --radius-pill: 999px;
   --radius-tile: 8px;
+  /* The moulded tier capsules on Home. */
+  --radius-capsule: 18px;
 
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
-  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  /*
+   * The artwork behind every screen, and the ink that has to survive on top of
+   * it. These do NOT flip with the theme: the picture is the same in both, so
+   * anything sitting directly on it is lit the same way in both.
+   *
+   * This artwork is a wall of blue cubes lit from below, and on a phone `cover`
+   * shows its whole height: deep blue at the top of the screen, near white at
+   * the bottom. No one ink survives that. Measured down the slice a phone
+   * shows, white clears 4.5:1 on 99% of the top eighth and 11% of the bottom
+   * eighth; near-black is the exact mirror. So there are two inks, and an
+   * element takes the one for the region it sits in — white up top, deep navy
+   * down in the light.
+   *
+   * Each carries a ring of zero-blur shadows in the other's colour, the
+   * technique subtitling uses: that is what covers the cube seams and the
+   * highlights, where neither ink clears on its own. A blurred glow does not
+   * work — only a hard edge separates ink from a lit surface.
+   */
+  --art-ground: #0a2a63;
+  --ink-on-art: #ffffff;
+  --ink-on-art-2: #d3e5ff;
+  --ink-outline: #041027;
+  --ink-shadow:
+    0 1px 0 var(--ink-outline), 0 -1px 0 var(--ink-outline),
+    1px 0 0 var(--ink-outline), -1px 0 0 var(--ink-outline),
+    1px 1px 0 var(--ink-outline), -1px 1px 0 var(--ink-outline),
+    1px -1px 0 var(--ink-outline), -1px -1px 0 var(--ink-outline),
+    0 2px 7px rgba(0, 0, 0, 0.55);
+  /* The same ring for SVG icons, which text-shadow cannot reach. */
+  --ink-drop: drop-shadow(0 1px 0 var(--ink-outline))
+    drop-shadow(0 -1px 0 var(--ink-outline))
+    drop-shadow(1px 0 0 var(--ink-outline))
+    drop-shadow(-1px 0 0 var(--ink-outline));
+
+  /* And the mirror of all of it, for the lit foot of the picture. */
+  --ink-on-lit-art: #08172e;
+  --ink-lit-outline: #ffffff;
+  --ink-lit-shadow:
+    0 1px 0 var(--ink-lit-outline), 0 -1px 0 var(--ink-lit-outline),
+    1px 0 0 var(--ink-lit-outline), -1px 0 0 var(--ink-lit-outline),
+    1px 1px 0 var(--ink-lit-outline), -1px 1px 0 var(--ink-lit-outline),
+    1px -1px 0 var(--ink-lit-outline), -1px -1px 0 var(--ink-lit-outline),
+    0 2px 7px rgba(255, 255, 255, 0.5);
+  /*
+   * The heavier ring, for the smallest text at the foot of the picture. Navy on
+   * a pale cube face is the easy case; what this is for is the near-black seams
+   * between the faces, which run right under the stats line and the toolbar and
+   * would otherwise swallow 12px labels whole. Two rings — one at 1px and the
+   * cardinals again at 2px — so the seam cannot close over a stroke.
+   */
+  --ink-lit-shadow-heavy:
+    0 1px 0 var(--ink-lit-outline), 0 -1px 0 var(--ink-lit-outline),
+    1px 0 0 var(--ink-lit-outline), -1px 0 0 var(--ink-lit-outline),
+    1px 1px 0 var(--ink-lit-outline), -1px 1px 0 var(--ink-lit-outline),
+    1px -1px 0 var(--ink-lit-outline), -1px -1px 0 var(--ink-lit-outline),
+    0 2px 0 var(--ink-lit-outline), 0 -2px 0 var(--ink-lit-outline),
+    2px 0 0 var(--ink-lit-outline), -2px 0 0 var(--ink-lit-outline),
+    0 2px 8px rgba(255, 255, 255, 0.65);
+  --ink-lit-drop: drop-shadow(0 1px 0 var(--ink-lit-outline))
+    drop-shadow(0 -1px 0 var(--ink-lit-outline))
+    drop-shadow(1px 0 0 var(--ink-lit-outline))
+    drop-shadow(-1px 0 0 var(--ink-lit-outline))
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
 
   color-scheme: light;
 }
@@ -127,17 +198,44 @@ ol {
 /* ---- Base -------------------------------------------------------------- */
 
 body {
-  background: var(--bg);
+  background: var(--art-ground);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.45;
 }
 
+/*
+ * Tob's artwork, exactly as supplied: not cropped, not lightened, not darkened,
+ * with no scrim over it. It is a fixed layer of its own rather than a property
+ * of the body, so the 100-tile level grid scrolls over a still picture instead
+ * of dragging it along — `background-attachment: fixed` is the version of this
+ * that stutters on a phone.
+ *
+ * The source is 1536x1024 and a phone is portrait, so `cover` shows a tall
+ * slice of the middle. That framing is the app's, not the file's: the file
+ * ships whole (see scripts/textures/prepare-background.py).
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    url('/textures/backdrop.webp') center center / cover no-repeat,
+    var(--art-ground);
+}
+
+/*
+ * The app is laid out edge to edge so the artwork reaches all four corners; the
+ * content keeps clear of the status bar with padding rather than by stopping
+ * short of it.
+ */
 #app {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  padding-top: var(--inset-top);
 }
 
 :focus-visible {

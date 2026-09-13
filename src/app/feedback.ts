@@ -54,8 +54,15 @@ export function createFeedback(
     tick() {
       if (sound()) sfx.tick();
     },
+    /*
+     * Deliberately not gated on the sound setting. This is the one call that is
+     * guaranteed to run inside a user gesture, and creating the AudioContext is
+     * what it is for; playback is gated per sound above, so nothing is audible
+     * while sound is off. Gated, turning sound on mid-level built the context
+     * outside a gesture instead, where a browser can refuse to start it.
+     */
     unlock() {
-      if (sound()) sfx.unlock();
+      sfx.unlock();
     },
   };
 }

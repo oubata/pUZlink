@@ -3,9 +3,11 @@ import type { Progress } from '../../storage/persistence';
 import type { TierId } from '../../engine/types';
 import { el, type View } from '../dom';
 import { ICONS } from '../icons';
+import { tierSurface } from '../../render/theme';
 import {
   firstUnsolved,
   isLevelUnlocked,
+  lockReason,
   solvedCount,
   solvedRecord,
 } from '../progress';
@@ -28,25 +30,44 @@ export function createLevelSelect(props: LevelSelectProps): View {
     tiles.push(tile(tier, index, suggested, props));
   }
 
-  const root = el('main', { class: 'screen screen--levels' }, [
-    el('header', { class: 'topbar' }, [
-      el('button', {
-        class: 'icon-button',
-        html: ICONS.back,
-        attrs: { type: 'button', 'aria-label': S.back },
-        on: { click: props.onBack },
-      }),
-      el('h1', {
-        class: 'topbar__title',
-        text: S.levelSelectTitle(tier.name, tier.size),
-      }),
-      el('span', {
-        class: 'topbar__trailing',
-        text: S.tierProgress(solved, tier.levelCount),
-      }),
-    ]),
-    el('ul', { class: 'levels' }, tiles),
-  ]);
+  // The grid carries its tier's capsule colours, exactly as the Home row does,
+  // so a solved level is filled in with the colour that opened it — and the
+  // artwork stays visible between the tiles instead of behind a wall of white.
+  const surface = tierSurface(tier.id);
+  const style = [
+    `--tier-face: ${surface.face}`,
+    `--tier-top: ${surface.top}`,
+    `--tier-bottom: ${surface.bottom}`,
+    `--tier-edge: ${surface.edge}`,
+    `--tier-ink: ${surface.ink}`,
+  ].join('; ');
+
+  const root = el(
+    'main',
+    {
+      class: 'screen screen--levels',
+      attrs: { style },
+    },
+    [
+      el('header', { class: 'topbar' }, [
+        el('button', {
+          class: 'icon-button',
+          html: ICONS.back,
+          attrs: { type: 'button', 'aria-label': S.back },
+          on: { click: props.onBack },
+        }),
+        el('h1', {
+          class: 'topbar__title',
+          text: S.levelSelectTitle(tier.name, tier.size),
+        }),
+        el('span', {
+          class: 'topbar__trailing',
+          text: S.tierProgress(solved, tier.levelCount),
+        }),
+      ]),
+      el('ul', { class: 'levels' }, tiles),
+    ],
+  );
 
   return { el: root };
 }
@@ -69,10 +90,14 @@ function tile(
   }
 
   const label = record
-    ? `${S.levelTileLabel(index)}, solved${record.hint ? ' with a hint' : ''}`
+    ? record.hint
+      ? S.levelSolvedWithHintLabel(index)
+      : S.levelSolvedLabel(index)
     : unlocked
       ? S.levelTileLabel(index)
-      : S.levelLockedLabel(index);
+      : lockReason(props.progress, tier.id, index) === 'hub'
+        ? S.levelHubLockedLabel(index)
+        : S.levelLockedLabel(index);
 
   // A locked tile is a disabled button: dimmed, unclickable, and skipped by
   // Tab rather than trapping a keyboard user on something that does nothing.

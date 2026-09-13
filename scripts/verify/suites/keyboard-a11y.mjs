@@ -365,6 +365,32 @@ export default {
         .slice(0, 200),
     );
 
+    // ---- Nothing behind the results card is reachable ---------------------
+    /*
+     * The board stays mounted and visible under the Won card, and it is a
+     * focusable element with live keyboard shortcuts. `aria-modal` asks
+     * assistive technology to ignore it; `inert` is what actually stops a Tab,
+     * a click, or an arrow key from reaching it.
+     */
+    await sleep(900);
+    const behindCard = await page.evaluate(`
+      const screen = document.querySelector('.screen');
+      const board = document.querySelector('.board');
+      board?.focus();
+      return {
+        card: document.querySelector('.modal__title')?.textContent ?? null,
+        inert: screen?.hasAttribute('inert') ?? null,
+        focusedBoard: document.activeElement === board,
+      };
+    `);
+    check(
+      'the screen behind the results card is inert',
+      behindCard.card !== null &&
+        behindCard.inert === true &&
+        behindCard.focusedBoard === false,
+      `card=${behindCard.card} inert=${behindCard.inert} board took focus=${behindCard.focusedBoard}`,
+    );
+
     return results;
   },
 };

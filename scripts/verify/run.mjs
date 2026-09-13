@@ -20,13 +20,14 @@ import keyboardA11y from './suites/keyboard-a11y.mjs';
 import edgeCases from './suites/edge-cases.mjs';
 import winRule from './suites/win-rule.mjs';
 import unlock from './suites/unlock.mjs';
+import artwork from './suites/artwork.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const SHOTS = join(HERE, 'screenshots');
 const PROFILE = join(HERE, '.browser-profile');
 
-const SUITES = [coreLoop, keyboardA11y, edgeCases, winRule, unlock];
+const SUITES = [coreLoop, keyboardA11y, edgeCases, winRule, unlock, artwork];
 
 const args = process.argv.slice(2);
 const urlArg = args.find((a) => a.startsWith('--url='));

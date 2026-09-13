@@ -16,7 +16,16 @@
     </style>
 
 
+    <!--
+        The launch window. `android:background` is what pre-12 Android paints,
+        and it points at the generated splash. Android 12 and up ignore that
+        drawable entirely and use windowSplashScreenBackground, so both are set
+        to the app's own blue: without it the cold-launch window was the
+        platform default, which is white.
+    -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/brand_background</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

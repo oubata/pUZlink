@@ -88,7 +88,7 @@ try {
   check('the page links a web app manifest', manifest !== null);
   check(
     'the manifest names the app',
-    manifest?.name === 'PUZLink' && manifest?.short_name === 'PUZLink',
+    manifest?.name === 'pUZlink' && manifest?.short_name === 'pUZlink',
     `${manifest?.name} / ${manifest?.short_name}`,
   );
   check(
@@ -103,8 +103,8 @@ try {
   );
   check(
     'it sets a background and theme colour',
-    manifest?.background_color === '#FFFFFF' &&
-      manifest?.theme_color === '#FFFFFF',
+    manifest?.background_color === '#0A2A63' &&
+      manifest?.theme_color === '#0A2A63',
     `${manifest?.background_color} / ${manifest?.theme_color}`,
   );
   check(
@@ -223,6 +223,23 @@ try {
     'the app shell is precached',
     cached.total >= 5,
     `${cached.total} entries in ${cached.keys.length} cache(s)`,
+  );
+
+  // The artwork is behind every screen, so an install that cached everything
+  // except the picture would come up offline with a flat blue app.
+  const art = await page.evaluate(`
+    return caches.keys().then(async (keys) => {
+      const urls = [];
+      for (const key of keys) {
+        for (const request of await (await caches.open(key)).keys()) urls.push(request.url);
+      }
+      return urls.filter(u => u.includes('backdrop'));
+    });
+  `);
+  check(
+    'the background artwork is precached with it',
+    art.length > 0,
+    art.length ? art[0].split('/').pop() : 'not in any cache',
   );
 
   // ---- Criterion 17 still holds once a worker is in the way ---------------

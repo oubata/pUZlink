@@ -384,3 +384,54 @@ describe('Confirm dialogs (spec 5.5)', () => {
     root.remove();
   });
 });
+
+describe('modal identity and keyboard conventions', () => {
+  it('gives two modals with the same title different heading ids', () => {
+    // 'How to play' is both a Paused button and a modal heading; 'Restart' is
+    // both a tool and a confirmation. A title hash gave them the same id.
+    const first = createConfirmRestart({ onConfirm: noop, onCancel: noop });
+    const second = createConfirmRestart({ onConfirm: noop, onCancel: noop });
+    mount(first);
+    mount(second);
+
+    const idOf = (view: View): string | null =>
+      view.el.querySelector('.modal__panel')?.getAttribute('aria-labelledby') ??
+      null;
+
+    expect(idOf(first)).not.toBeNull();
+    expect(idOf(first)).not.toBe(idOf(second));
+    first.el.remove();
+    second.el.remove();
+  });
+
+  it('moves between segmented options with the arrow keys', () => {
+    const patches: Partial<Settings>[] = [];
+    const view = createSettings({
+      settings: defaultSettings(),
+      hapticsAvailable: true,
+      onChange: (patch) => patches.push(patch),
+      onReset: noop,
+      onClose: noop,
+    });
+    const root = mount(view);
+
+    const group = root.querySelector<HTMLElement>('[role="radiogroup"]');
+    const radios = [...(group?.querySelectorAll('[role="radio"]') ?? [])];
+    (radios[0] as HTMLElement).focus();
+
+    group?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    );
+    expect(document.activeElement).toBe(radios[1]);
+    expect(radios[1]?.getAttribute('aria-checked')).toBe('true');
+    expect(patches).toHaveLength(1);
+
+    // And the ends wrap, as a radio group does.
+    (radios[0] as HTMLElement).focus();
+    group?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
+    );
+    expect(document.activeElement).toBe(radios.at(-1));
+    view.el.remove();
+  });
+});

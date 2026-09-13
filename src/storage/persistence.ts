@@ -1,5 +1,6 @@
-import { STORAGE_KEYS } from '../app/config';
+import { STORAGE_PREFIX, STORAGE_KEYS } from '../app/config';
 import type { Cell, TierId } from '../engine/types';
+import { TIERS } from '../generator/difficulty';
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -43,14 +44,12 @@ export interface InProgress {
   hintCount: number;
 }
 
-const TIER_IDS: readonly TierId[] = [
-  'easy',
-  'normal',
-  'hard',
-  'extreme',
-  'expert',
-  'master',
-];
+/*
+ * Derived, not hand-listed. `parseProgress` walks this to read a saved file, so
+ * a second copy that fell behind `difficulty.ts` would silently drop a whole
+ * tier's solved levels on every load.
+ */
+const TIER_IDS: readonly TierId[] = TIERS.map((tier) => tier.id);
 
 export function defaultProgress(): Progress {
   const tiers = {} as Record<TierId, TierProgress>;
@@ -111,13 +110,11 @@ export class Persistence {
   }
 
   clearInProgress(): void {
-    this.storage?.removeItem(STORAGE_KEYS.inProgress);
+    this.remove(STORAGE_KEYS.inProgress);
   }
 
   resetAll(): void {
-    for (const key of Object.values(STORAGE_KEYS)) {
-      this.storage?.removeItem(key);
-    }
+    for (const key of Object.values(STORAGE_KEYS)) this.remove(key);
   }
 
   private read(key: string): unknown {
@@ -137,6 +134,20 @@ export class Persistence {
       this.storage.setItem(key, JSON.stringify(value));
     } catch {
       // Quota or private-mode failure: the game keeps working unsaved.
+    }
+  }
+
+  /*
+   * Wrapped for the same reason as `write`. A store can start refusing after it
+   * was writable at boot, and this one runs on the win path — an exception here
+   * would have thrown straight through the code that shows the results card.
+   */
+  private remove(key: string): void {
+    if (!this.storage) return;
+    try {
+      this.storage.removeItem(key);
+    } catch {
+      // Nothing to do: the value stays, and every read of it is validated.
     }
   }
 }
@@ -253,7 +264,9 @@ function defaultStorage(): StorageLike | null {
   try {
     const probe = globalThis.localStorage;
     if (!probe) return null;
-    const key = '__colorlink_probe__';
+    // Prefixed like everything else the app writes, so `resetAll` would sweep
+    // it up if the remove below ever failed.
+    const key = `${STORAGE_PREFIX}probe`;
     probe.setItem(key, '1');
     probe.removeItem(key);
     return probe;

@@ -1,7 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import { Engine } from '../../src/engine/engine';
 import { MAX_HINTS_PER_LEVEL } from '../../src/engine/queries';
+import { EMPTY } from '../../src/engine/types';
 import { drawPath, EASY_001, TINY_3x3 } from '../fixtures';
+
+describe('the colour the next hint will draw', () => {
+  /*
+   * The board screen animates the reveal, so it has to know which colour the
+   * hint is about to draw. It used to work that out itself by comparing path
+   * *lengths*, which is not the same question: a path can be exactly as long as
+   * its solution and still be a different route. When that happened the hint
+   * redrew one colour and the animation played over another.
+   */
+  it('picks a same-length path that takes a different route', () => {
+    const engine = new Engine(TINY_3x3);
+    // Colour 0 joined the long way round: five cells, like its solution, but
+    // through [1,1] and [1,2] instead of along the top row.
+    drawPath(engine, [
+      [0, 0],
+      [0, 1],
+      [1, 1],
+      [1, 2],
+      [2, 2],
+    ]);
+
+    const solution = TINY_3x3.solution[0] ?? [];
+    expect(engine.paths[0]).toHaveLength(solution.length);
+    expect(engine.paths[0]).not.toEqual(solution);
+
+    // The length-only answer was 1. The right answer is 0.
+    expect(engine.nextHintColor()).toBe(0);
+
+    engine.hint();
+    expect(engine.paths[0]).toEqual(solution);
+  });
+
+  it('agrees with what hint() actually redraws', () => {
+    const engine = new Engine(EASY_001);
+    drawPath(engine, EASY_001.solution[0] ?? []);
+
+    const predicted = engine.nextHintColor();
+    expect(predicted).toBe(1);
+    engine.hint();
+    expect(engine.paths[predicted]).toEqual(EASY_001.solution[predicted]);
+  });
+
+  it('reports EMPTY once every colour is solution-shaped', () => {
+    const engine = new Engine(TINY_3x3);
+    for (const path of TINY_3x3.solution) drawPath(engine, path);
+    expect(engine.won).toBe(true);
+    expect(engine.nextHintColor()).toBe(EMPTY);
+  });
+});
 
 describe('hint (spec 5.2)', () => {
   it('draws the lowest colour whose path differs from the solution', () => {

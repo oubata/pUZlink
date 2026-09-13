@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The artwork's deep end, the same value as the web manifest's
+        theme_color and Capacitor's backgroundColor. Everything the system
+        paints before or around the app uses this, so nothing flashes white.
+    -->
+    <color name="brand_background">#0A2A63</color>
+</resources>

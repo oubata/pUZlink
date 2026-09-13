@@ -1,6 +1,7 @@
 import {
   createChecks,
   freshStart,
+  goHome,
   sleep,
   seedSolved,
   solveLevel,
@@ -83,6 +84,13 @@ export default {
 
     // ---- The last level of a tier returns to the grid ---------------------
     // Levels open one at a time now, so reaching 100 means 1..99 are solved.
+    /*
+     * The app saves the live board when the page goes away (pagehide), so a
+     * suite has to leave the board before reloading — otherwise the reload
+     * restores exactly the board `seedSolved` just cleared, and the app comes
+     * back on the board instead of at Home.
+     */
+    await goHome(page);
     await seedSolved(page, 'easy', 99);
     await page.reload();
     await waitForScreen(page, '.screen--home');

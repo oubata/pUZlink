@@ -8,6 +8,9 @@ export const S = {
   appName: APP_NAME,
   tagline: 'Connect the dots. Fill the board.',
 
+  // Boot failure, shown in place of the app when it cannot start at all.
+  bootError: 'Something went wrong starting the game. Please reload.',
+
   // Home
   howToPlay: 'How to play',
   settings: 'Settings',
@@ -21,8 +24,18 @@ export const S = {
   levelSelectTitle: (tierName: string, size: number) =>
     `${tierName} · ${size}×${size}`,
   levelTileLabel: (index: number) => `Level ${index}`,
+  /* Appended to the tile label above, so a screen reader hears the state as
+     part of the name rather than only seeing it in the tile's colour. */
+  levelSolvedLabel: (index: number) => `Level ${index}, solved`,
+  levelSolvedWithHintLabel: (index: number) =>
+    `Level ${index}, solved with a hint`,
   levelLockedLabel: (index: number) =>
     `Level ${index}, locked. Solve level ${index - 1} first.`,
+  /* Shown on a level the pUZles hub is holding back. Deliberately not a threshold to
+     solve — there is nothing the player can do about it inside this game. */
+  unlockInHub: 'Unlock in pUZles',
+  levelHubLockedLabel: (index: number) =>
+    `Level ${index}, locked. Unlock in pUZles.`,
 
   // Play
   playTitle: (tierName: string, index: number) =>
@@ -56,7 +69,6 @@ export const S = {
   time: 'Time',
   best: 'Best',
   newBest: 'New best',
-  hintUsed: 'Hint used',
   hintsUsed: (count: number) =>
     count === 1 ? '1 hint used' : `${count} hints used`,
   nextLevel: 'Next level',

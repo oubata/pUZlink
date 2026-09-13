@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">PUZLink</string>
-    <string name="title_activity_main">PUZLink</string>
+    <string name="app_name">pUZlink</string>
+    <string name="title_activity_main">pUZlink</string>
     <string name="package_name">com.oubata.colorlink</string>
     <string name="custom_url_scheme">com.oubata.colorlink</string>
 </resources>

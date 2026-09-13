@@ -14,7 +14,7 @@ import {
 import { isPathComplete, isWon, MAX_HINTS_PER_LEVEL } from './queries';
 
 /**
- * The rules of PUZLink, exactly as tabulated in spec 5.2.
+ * The rules of pUZlink, exactly as tabulated in spec 5.2.
  *
  * Pure: no DOM, no randomness, no timers. The app owns the clock; the engine
  * owns the board.
@@ -271,6 +271,18 @@ export class Engine {
     return true;
   }
 
+  /**
+   * Which colour the next hint would draw, or EMPTY when there is none.
+   *
+   * The board screen needs this to animate the right path, and it must be the
+   * engine's own answer: a second copy in the view that compared path *lengths*
+   * once picked a different colour than the hint actually drew, so the reveal
+   * played over an untouched path.
+   */
+  nextHintColor(): number {
+    return this.firstUnsolvedColor();
+  }
+
   /** Restore the hint tally of a saved board. */
   markHintUsed(count = 1): void {
     this.hintWasUsed = true;
@@ -283,14 +295,20 @@ export class Engine {
   /**
    * Replace the board with a previously saved set of paths. Returns false and
    * leaves the engine untouched when the paths break any invariant.
+   *
+   * `moves` carries the saved move count back in, and it matters: Perfect is
+   * "one move per pair with no hint" (spec 5.4), so a resumed board that
+   * restarted its tally at zero could never earn the badge however it was
+   * finished. The undo stack is deliberately not restored — it is not saved.
    */
-  restore(paths: readonly (readonly Cell[])[]): boolean {
+  restore(paths: readonly (readonly Cell[])[], moves = 0): boolean {
     if (!this.isValidPathSet(paths)) return false;
     this.strokeColor = EMPTY;
     this.strokeSnapshot = null;
     this.setPaths(clonePaths(paths));
     this.normalize();
     this.undoStack = [];
+    this.movesCount = Math.max(0, Math.trunc(moves));
     this.wonFlag = isWon(this.level, this.pathsArr);
     this.mutations++;
     this.emit({ type: 'change' });

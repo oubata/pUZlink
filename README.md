@@ -1,4 +1,4 @@
-# PUZLink
+# pUZlink
 
 A grid path-connection puzzle. Drag a line from each coloured dot to its twin;
 lines may not cross, and the board is only solved when every cell is covered.
@@ -23,18 +23,20 @@ in `localStorage`.
 
 ## Commands
 
-| Command                 | What it does                                                                                                    |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`           | Dev server with hot reload                                                                                      |
-| `npm run build`         | Type-check, then a production bundle in `dist/`                                                                 |
-| `npm run preview`       | Serve the built `dist/` locally                                                                                 |
-| `npm test`              | 233 unit tests (Vitest)                                                                                         |
-| `npm run verify`        | Drives a headless browser through the app and checks the spec 12 criteria that can only be judged by running it |
-| `npm run verify:pwa`    | Builds, then checks the manifest, icons, service worker, and a real offline reload                              |
-| `npm run icons`         | Re-rasterises the PNG icons from the artwork in `scripts/icons/generate.mjs`                                    |
-| `npm run apk`           | Builds the Android debug APK (needs a JDK and the Android SDK)                                                  |
-| `npm run unlock:device` | Unlocks every tier on a connected phone, for testing                                                            |
-| `npm run format`        | Prettier                                                                                                        |
+| Command                                          | What it does                                                                                                    |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                                    | Dev server with hot reload                                                                                      |
+| `npm run build`                                  | Type-check, then a production bundle in `dist/`                                                                 |
+| `npm run preview`                                | Serve the built `dist/` locally                                                                                 |
+| `npm test`                                       | 233 unit tests (Vitest)                                                                                         |
+| `npm run verify`                                 | Drives a headless browser through the app and checks the spec 12 criteria that can only be judged by running it |
+| `npm run verify:pwa`                             | Builds, then checks the manifest, icons, service worker, and a real offline reload                              |
+| `npm run icons`                                  | Re-rasterises the PNG icons from the artwork in `scripts/icons/generate.mjs`                                    |
+| `python3 scripts/textures/prepare-background.py` | Re-encodes the background artwork losslessly into `public/textures/` (needs Pillow)                             |
+| `npm run apk`                                    | Builds the Android debug APK (needs a JDK and the Android SDK)                                                  |
+| `npm run android:open`                           | Builds and syncs the native bundle, then opens `android/` in Android Studio                                     |
+| `npm run unlock:device`                          | Unlocks every tier on a connected phone, for testing                                                            |
+| `npm run format`                                 | Prettier                                                                                                        |
 
 `npm run verify` and `npm run verify:pwa` need a Chromium-based browser. They
 look for Edge and Chrome in the usual places; set `CHROME_PATH` if yours is
@@ -127,8 +129,11 @@ npm run apk
 
 Builds `android/app/build/outputs/apk/debug/app-debug.apk` — a self-contained
 app with the whole game inside it. No server, no URL bar, offline from first
-launch. Needs a JDK and the Android SDK, with `ANDROID_HOME` pointing at the
-SDK. Install it on a connected phone with:
+launch. Needs the Android SDK with `ANDROID_HOME` pointing at it, and a JDK of
+21 or older on `JAVA_HOME`: Gradle 8.11.1 rejects the JDK 25 that current
+Android Studio bundles, with "Unsupported class file major version 69".
+`/usr/libexec/java_home -V` lists the JDKs installed. Install it on a connected
+phone with:
 
 ```bash
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
@@ -137,7 +142,29 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 The APK is debug-signed, so Android asks you to allow installation from an
 unknown source the first time.
 
-Two things worth knowing about the native build:
+### Android Studio
+
+```bash
+npm run android:open
+```
+
+Builds the native bundle, copies it into `android/`, and opens the project in
+Android Studio, where Run ▶ builds, installs and attaches a debugger in one go.
+Studio brings its own JDK and SDK, so this needs neither a JDK on the `PATH` nor
+`ANDROID_HOME` — it is the shorter road on a machine that has never had the
+command-line SDK set up. The first Gradle sync takes a few minutes.
+
+Add `-- --open-only` to skip the rebuild and open whatever was last synced. If
+Studio lives somewhere other than the default location, point
+`CAPACITOR_ANDROID_STUDIO_PATH` at it.
+
+Three things worth knowing about the native build:
+
+- **It runs edge to edge, with the navigation bar hidden.** The artwork reaches
+  all four edges and the board gets the whole screen. The navigation bar is
+  hidden, not disabled: a swipe up from the bottom edge brings it back as a
+  transient overlay that fades on its own. The status bar stays, floating over
+  the artwork, so the clock and battery are still visible during a game.
 
 - It uses `vite build --mode native`, which **drops the service worker**.
   Capacitor serves every app version from the same `https://localhost` origin,

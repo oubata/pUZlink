@@ -93,3 +93,20 @@ describe('board layout (spec 9, criterion 10)', () => {
     expect(cellAt(layout, 0, layout.boardPx)).toBeNull();
   });
 });
+
+describe('the board stays inside its column', () => {
+  it('does not outgrow the 560px content column on a desktop window', () => {
+    // The column is capped by CSS; the board was sized from the whole window,
+    // so on a wide screen it hung over the top bar and the toolbar.
+    const wide = computeLayout(1400, 900, 14, 1);
+    expect(wide.boardPx).toBeLessThanOrEqual(
+      BOARD_LAYOUT.maxContentWidth - BOARD_LAYOUT.viewportPaddingX,
+    );
+  });
+
+  it('leaves a phone-width board exactly as it was', () => {
+    // The cap must not touch the case every player is actually in.
+    expect(computeCellPx(360, 640, 14)).toBe(24);
+    expect(computeCellPx(390, 844, 5)).toBe(72);
+  });
+});

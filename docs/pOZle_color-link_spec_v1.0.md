@@ -359,24 +359,25 @@ Pointer events use the Pointer Events API with `touch-action: none` on the canva
 
 ## 9. UI / UX
 
-Visual language: white page, near-black text, one serif headline face, one sans UI face, hairline rules, black pill buttons, generous whitespace. No gradients, no drop shadows, no illustration. Dark mode inverts the neutrals.
+Visual language: **Tob's artwork behind every screen**, near-black or white text depending on what it sits on, one serif headline face, one sans UI face, hairline rules, black pill buttons, generous whitespace. The page is no longer white and the tier capsules are moulded rather than flat — see "The artwork behind every screen" and "Home wears the Hub app's moulded capsules" below. Dark mode inverts the neutrals of the panels; the artwork is the same in both.
 
 ### Screen inventory
 
 **Home**
 
 - Header: `APP_NAME` in the serif face (32 px), small tagline "Connect the dots. Fill the board." below.
-- Vertical list of six tier rows. Each row: tier name (sans, 18 px, medium), board size ("8×8", secondary text), progress "23/100" right-aligned, a 2 px progress bar underneath spanning the row. Locked rows are at 40% opacity with a lock glyph and one line: "Solve 20 Hard levels to unlock" (from config, never hard-coded).
+- Vertical list of six tier rows, each a capsule in its own tier colour (see the note below). Each row: tier name (sans, 19 px, bold), board size ("8×8"), progress "23/100" right-aligned, and a progress bar along the bottom of the capsule. Locked rows are greyed with a lock glyph and one line: "Solve 20 Hard levels to unlock" (from config, never hard-coded).
 - Footer row: "How to play" and a gear icon (Settings), both text buttons.
 
 **LevelSelect(tier)**
 
 - Header: back chevron, "Hard · 8×8" centred, "23/100" right.
-- Grid of 100 square tiles, 5 columns, scrollable. Tile states:
-  - unsolved: light-gray fill, dark number;
-  - solved: black fill, white number;
-  - solved with hint: white fill, 1.5 px black border, black number, small dot in the corner;
-  - suggested next (first unsolved): unsolved style with a 2 px accent ring.
+- Grid of 100 square tiles, 5 columns, scrollable. Tile states (revised for the artwork — see the note below):
+  - unsolved: a pane of glass over the artwork, white number;
+  - solved: filled with the tier's own capsule colour, that capsule's ink;
+  - solved with hint: glass with a 2 px ring in the tier colour, small dot in the corner;
+  - suggested next (first unsolved): glass with a 2 px white ring;
+  - locked: a darker well, faint white number.
 - Tapping a tile opens Playing.
 
 **Playing**
@@ -922,7 +923,9 @@ while this was being written.
 
 ### Renamed to pOZ-Link, and endpoints are now O's (Tob, 28 August 2026)
 
-**The working title in assumption 14 is settled: PUZLink** (briefly pOZ-Link). It lives in
+**The working title in assumption 14 is settled: pUZlink** (briefly pOZ-Link, and
+written PUZLink until 6 September, when it was corrected to match its siblings on
+the Hub's home screen — pUZmate, pUZsaw, pUZfill, pUZdoku). It lives in
 `APP_NAME` exactly as section 2 promised, so the Home masthead, the page title,
 the web app manifest and the Won card all follow from one constant. The two
 places outside TypeScript that carry a name of their own — `capacitor.config.json`
@@ -1041,3 +1044,349 @@ that the game _runs_ offline — a level generates, the engine responds, the
 board redraws, the HUD follows, and the hint allowance runs out — rather than
 that a level can be _completed_ offline. Completing one is covered against the
 dev server, and nothing on the win path touches the network.
+
+### Home wears the Hub app's moulded capsules (Tob, 5 September 2026)
+
+pUZlink is going into the Hub app, whose other games present their modes as
+brightly coloured, embossed capsules. Home now matches them: each tier is a
+capsule in its own colour, lit along the top edge, darkening into the bottom of
+the mould, standing on a 3 px edge of its own colour, and pressing down onto
+that edge when tapped. This overrides "no gradients, no drop shadows" in
+section 9 for this one screen — deliberately, and only here. The board, the
+level grid and the modals stay flat.
+
+It also reverses the reasoning behind the tier colours added on 30 August, which
+kept the colour to a rail and a wash precisely to avoid being the only bevelled
+thing in a flat app. Consistency with the Hub app now outranks internal
+consistency with the play screen.
+
+**Nothing is picked by eye: the whole capsule is derived from the tier's one
+palette colour.** `tierSurface()` in `src/render/theme.ts` returns the face, the
+top highlight, the bottom, the edge and the label ink, and the row hands them to
+the stylesheet as custom properties. The ink is white or near-black, whichever
+reads on that colour, and the face is then pushed away from the ink in 4% steps
+until the label clears 4.5:1 against _both_ ends of the gradient rather than
+just the middle — a highlight bright enough to look moulded is also bright
+enough to swallow white text. Four of the six hues need no help; blue lightens
+one notch, purple and red deepen. A test pins the contrast at top, face and
+bottom for all six.
+
+**The progress bar moved into the capsule** rather than taking a row of its
+own, so six capsules still fit a 320×568 screen with three unlock lines showing.
+It stops short of the corners, where the radius would otherwise swallow the
+first few percent — 3/100 has to be visible. Its track and fill are the label
+ink at 25% and 85%, so it carries the same guaranteed contrast as the text.
+
+**A locked tier keeps its shape and loses its colour** — fully desaturated at
+60% opacity, sitting flat on its edge with no lift. Section 9's 40% opacity was
+too faint to read the unlock line through once the row had a coloured ground.
+
+### The artwork behind every screen (Tob, 5 September 2026)
+
+Every screen now sits on Tob's artwork — the wall of blue cubes, `Specs/images/
+Backg image1.png` — **exactly as supplied**. Not cropped, not lightened, not
+darkened, with no scrim between it and the app. Section 9's white page and
+section 10's neutral grounds are overridden for the page itself; the panels keep
+their neutrals.
+
+**Three pictures were fitted before this one was chosen.** A dotted world map
+(too busy behind the wordmark, and its colour dulled the capsules) and a wall of
+LED strips (technically the easiest — dead even at L 0.25, so one ink served the
+whole screen — but visually inert, and its dot pitch fought every glyph). The
+cube wall won on looks: big, low-frequency shapes that recede behind the
+capsules, a saturated blue that lets the tier colours sing, and a gradient that
+does compositional work. It is the _hardest_ of the three to write on, and that
+trade was made deliberately.
+
+**It ships whole.** `scripts/textures/prepare-background.py` re-encodes the
+1.16 MB PNG as an 860 KB lossless WebP and refuses to write anything unless the
+result decodes pixel for pixel identical to the source; `--check` re-verifies
+the committed file. Container only — no crop, no resample, no colour change.
+The framing is the app's: `background-size: cover` on a fixed layer, so a
+portrait phone shows a tall slice of the middle and the 100-tile level grid
+scrolls over a still picture.
+
+**Two inks, because the picture is lit from below.** Measured down the slice a
+phone shows: the top eighth is deep blue, where white clears 4.5:1 on 99% of
+the pixels and near-black on 0.8%; the bottom eighth is near white, where the
+numbers are almost exactly reversed (white 12%, dark 88%). No one ink survives
+that, so an element takes the ink for the region it sits in — `--ink-on-art`
+(white) up top for the masthead and both top bars, `--ink-on-lit-art` (deep
+navy) down in the light for the Home footer and the play stats and toolbar.
+Those positions are fixed by the layout, so the assignment is static.
+
+Each ink carries a ring of zero-blur shadows in the other's colour — the
+technique subtitling uses — which is what covers the cube seams and highlights
+where neither ink clears on its own. A blurred glow does not work; only a hard
+edge separates ink from a lit surface. `--ink-drop` and `--ink-lit-drop` are the
+same rings for SVG icons, which `text-shadow` cannot reach.
+
+**The stats line and the toolbar get a heavier ring** (`--ink-lit-shadow-heavy`,
+a second set of cardinals at 2px). They are the smallest text in the app, 12 and
+14px, and they land squarely on the near-black seams between the cube faces,
+which a single 1px ring lets close over a stroke. Checked at 390x844, 360x640
+and 320x568, where the toolbar sits at a different point of the gradient each
+time.
+
+**What sits on the artwork, and what does not.** Anything with a surface of its
+own keeps the theme's neutrals: the board, the modal cards, the tier capsules.
+Anything sitting directly on the picture takes one of the two inks and does
+_not_ follow the theme, because the picture behind it does not either.
+
+**Three things had to change to stay legible over it.**
+
+- **A locked tier capsule is moulded from grey** (`lockedTierSurface()`) rather
+  than dimmed to 60% opacity. An opacity would have let the artwork through the
+  capsule and taken the unlock line with it.
+- **The level grid is a hundred dark wells.** It is the one surface that covers
+  the whole screen — and so the whole gradient — which rules out both an opaque
+  neutral (the artwork would be gone) and a clear one (the numbers would read at
+  the top and vanish at the foot). Each open tile carries its own dark wash, the
+  same one wherever it lands, so one ink serves the grid.
+- **A solved tile is filled with its tier's colour**, not `--accent`. With
+  `--accent` a played-out tier was a wall of white; the tier colour also ties
+  the grid to the capsule it was opened from.
+
+**A trap worth recording: a button inherits neither.** `text-shadow` does not
+reach a `<button>` from its parent, and `.text-button`/`.icon-button` set a
+colour of their own, so the Home footer came out in the theme's ink and
+unringed. Every on-artwork button is now named explicitly in those rules, and
+`npm run verify` has a suite that fails if any of them loses its outline.
+
+**Landscape is the one case the measurements do not cover.** Rotated, `cover`
+crops the picture vertically instead and shows its middle band, where white
+clears on 38% of the pixels rather than 99% — so the top bar leans on its ring
+there rather than on its ink. Portrait is the orientation this was fitted to.
+
+**Both themes are kept.** The artwork does not flip with them, so Light now
+means light panels on the picture (a white board, white modal cards) and Dark
+means dark ones. Nothing was removed from Settings.
+
+`background_color`, `theme_color` and Capacitor's `backgroundColor` are all
+`#0A2A63`, taken from the artwork's deep end, so no launch screen or
+task-switcher card flashes white in front of it. The WebP is precached with the
+shell — `npm run verify:pwa` fails if it is not — since an install that cached
+everything but the picture would come up offline as a flat blue app.
+
+### The app runs edge to edge, with the navigation bar hidden (Tob, 6 September 2026)
+
+On Android the artwork now reaches all four edges of the phone, and the board
+gets the whole screen. Two separate things in `MainActivity`:
+
+- **Edge to edge.** `setDecorFitsSystemWindows(false)` with both system bars
+  transparent, so the picture runs behind the status bar instead of stopping
+  under the grey band that Capacitor's default theme paints there. The status
+  bar itself stays — the clock and the battery float over the artwork during a
+  game — with its icons set light, because the top of the artwork is deep blue.
+- **The navigation bar is hidden** while the app is in front. Hidden, not
+  disabled: `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE` means a swipe from the
+  bottom edge brings it back as an overlay that fades again on its own, and the
+  content never relayouts around it.
+
+The hide request is made again on every `onWindowFocusChanged(true)`, not once
+at startup: Android drops it whenever the window loses focus, which a permission
+dialog, the recents switcher or an incoming call all do.
+
+**`env(safe-area-inset-top)` cannot carry the status bar on Android.** The
+WebView fills it from the display cutout only, so it reads 0 on a phone whose
+status bar sits in ordinary screen space — and the top bar would then sit under
+the clock. `MainActivity` measures the real inset in an
+`OnApplyWindowInsetsListener` and sets it on the page as `--inset-top`, in CSS
+pixels, every time the system reports it; rotation and a cutout appearing on one
+edge both come through the same path. The stylesheet declares
+`--inset-top: env(safe-area-inset-top, 0px)` as the default, so the web build
+and iOS are unaffected, and `#app` pads by it.
+
+**The status bar's inset counts towards the masthead's top padding rather than
+adding to it** — it is already holding the masthead clear of the edge — so
+`.home__header` pads by `max(0px, calc(var(--space-6) - var(--inset-top)))`.
+
+Measured while fitting it: Home needs about 536px of content height, and it
+tolerates a 24px inset at a 568px viewport with nothing to spare. That is not a
+constraint in practice — going edge to edge and hiding the navigation bar hands
+back roughly 70px that the layout never had before, so the app now fits on
+smaller phones than it did. It already overflowed below ~536px, before any of
+this.
+
+This is the fourth thing in the app that exists only on the device and cannot be
+proved by any check that runs here. `npm run apk` proves it compiles and ships;
+whether the bar is really gone, whether one swipe brings it back, and whether
+the clock clears the top bar all have to be looked at on the phone.
+
+**`android/gradlew` was committed without its executable bit** (mode 100644), so
+`npm run apk` could never have run on macOS or Linux — only the `gradlew.bat`
+path on Windows worked. Fixed to 100755 while building the APK for this change.
+Also worth recording: Gradle 8.11.1 rejects the JDK 25 that current Android
+Studio bundles ("Unsupported class file major version 69"), so `JAVA_HOME` has
+to point at a JDK of 21 or older.
+
+### The solve is recorded when the board is solved (Tob, 6 September 2026)
+
+Winning a level used to do two things in one deferred call: clear the saved
+board immediately, then, once the win animation had finished, record the solve
+and show the results card. Leaving the screen in between — the back chevron, the
+Android back button, the browser's back gesture — destroyed the view, and
+`destroy()` cancels that timer. **The level was solved on screen, the saved
+board was already gone, and nothing was ever written to progress.** On a Master
+board the window is about a second wide.
+
+`PlayView` now reports the win through two callbacks instead of one. `onSolved`
+fires synchronously inside the engine's `won` event and carries the snapshot;
+`App.recordWin` writes progress and clears the saved board there and then.
+`onWinShown` fires from the animation timer and carries nothing — by then the
+solve is already durable, and all that is left is `App.showWon`, which presents
+the card if the player is still on that level. If they left, the card is
+dropped and the level stays solved.
+
+**A solved board is now inert.** Three holes were open while the engine had won
+but the card had not yet appeared, all of them reachable:
+
+- **Pause.** The state machine refuses Paused on the `won` screen, but in that
+  window the screen is still `playing`. Paused offers Restart, which wiped the
+  board out from under the pending solve. `App.pause()` and the
+  visibilitychange handler now both refuse once `engine.won`.
+- **Undo.** The board keeps keyboard focus under the results card, and
+  `Engine.undo` recomputes the win flag — so `u` un-won a level that was already
+  recorded, leaving the card over an unsolved board.
+- **Restart.** `r` opened the restart-confirm dialog over the results card.
+
+The last two are guarded in `PlayView`, not in the input layer: `begin` and
+`extend` already refuse on a won board, so only the tool callbacks were exposed.
+The Pause button hides itself on a solved board rather than sitting there live
+and silent.
+
+### The clock cannot bill a sleeping phone (Tob, 6 September 2026)
+
+The play clock is built on `performance.now()`, which keeps advancing while a
+device sleeps, and the pause that would stop it hangs off `visibilitychange`,
+which a hard suspend does not always fire. A phone that slept in a pocket with a
+board open could come back with hours on the level.
+
+It now accumulates tick by tick instead of measuring one span from the moment it
+started: each 250ms tick, and each read of `elapsedMs`, folds
+`min(delta, TIMER.maxTickDeltaMs)` into the total. One second is the ceiling on
+any single stretch of wall time, so a gap longer than a tick — which only
+happens when the timer itself was frozen — contributes a tick and no more.
+Ordinary play is unaffected, since ordinary ticks are 250ms apart. Both values
+are tunables in `src/app/config.ts`.
+
+### The hint animation and the hint agree on a colour (Tob, 6 September 2026)
+
+`Engine.hint` picks the lowest colour whose path is not its solution, comparing
+the cells. The board screen, which has to animate the reveal, worked the colour
+out a second time by comparing path _lengths_ — a different question, since a
+path can be exactly as long as its solution and still take a different route.
+When the two disagreed the hint redrew one colour and the animation played over
+another. The engine now answers it once, through `nextHintColor()`, and the view
+asks rather than guesses.
+
+### Back, and the rest of the way out (Tob, 6 September 2026)
+
+**Back at Home minimizes instead of exiting.** The Android handler called
+`exitApp()`, which finishes the activity: the task is destroyed, it leaves
+Recents, and the resume state the app had just saved is only reachable through a
+cold start. `minimizeApp()` is what Android's own guidance describes — the task
+goes to the background with its board intact and comes back where it was.
+
+**The spare history entry is now consumed when it should be.** The web build
+pushes one entry on leaving Home so the browser's back gesture has something to
+pop. Returning to Home through the UI left that entry on the stack, so the first
+back press at Home did nothing at all and a second was needed to leave.
+`syncHistory` now pops it on arrival at the root — and only if `history.state`
+says the entry is the app's own, so it can never pop something it did not push.
+
+**The board is saved on `pagehide` as well as on `visibilitychange`.** The
+first covers backgrounding; the second covers a tab closing, a navigation away,
+or a WebView being torn down. A consequence worth recording, because it broke
+the verification harness: a page that goes away while a board is mounted now
+writes that board on the way out, so a suite that clears the saved board and
+reloads has to leave the board first or the reload restores it.
+
+**The wiring of the native back button is no longer fire-and-forget.** If the
+dynamic import of `@capacitor/app` fails, the platform default finishes the
+activity from any screen — the exact bug the listener exists to prevent — so the
+failure is now logged rather than swallowed as an unhandled rejection.
+
+### The canvas follows the OS theme (Tob, 6 September 2026)
+
+Theme and reduced motion both default to `system`, and the app read them once at
+startup. Switching the phone to dark mode with a board open repainted the DOM —
+the CSS media query does that by itself — but left the canvas on the palette it
+was built with, because the board reads those custom properties in JS and had
+nothing telling it to look again. Acceptance criterion 16 was satisfied by the
+Settings toggle and by nothing else.
+
+`watchSystemPreferences` in `src/render/theme.ts` subscribes to both media
+queries and calls back on either. The App re-applies whatever is stored, which is
+the same path the Settings modal takes and ends at `refreshColors()`; the stored
+value can stay `system`, since the resolvers work that out for themselves. It
+falls back to the deprecated `addListener` for a WebView without
+`addEventListener` on a MediaQueryList, and does nothing at all where
+`matchMedia` is missing.
+
+### The launch screen is the app's, and the inset arrives in time (Tob, 6 September 2026)
+
+**The APK was shipping Capacitor's splash screen** — all eleven density
+variants were the framework's stock artwork, a white field with the Capacitor
+logo, because `npm run icons` only ever wrote the launcher icons. They are now
+generated alongside them from the app's own mark on `#0A2A63`, at the same
+sizes the template defined.
+
+Two paths have to be served, because Android 12 changed how this works. Older
+versions paint `android:background` from the launch theme, which is the drawable
+above. Twelve and up ignore that drawable entirely and paint
+`windowSplashScreenBackground`, which was never set — so the cold-launch window
+was the platform default, white, in front of a dark blue app. Both now point at
+`@color/brand_background`, a new `values/colors.xml` holding the same `#0A2A63`
+as the web manifest and Capacitor's `backgroundColor`.
+
+**The launcher icon has a monochrome layer**, so Android 13's themed icons tint
+it with the rest of the home screen instead of leaving it a white square. It is
+the same artwork flattened to one colour on transparency, which is what the
+tinting requires.
+
+**`--inset-top` no longer races the page load.** The window is laid out long
+before the WebView has a document: the first insets arrive during the first
+frame, so the property was being set on a document that was then thrown away,
+and nothing published it again — the top bar sat under the clock until the first
+rotation. `MainActivity` now keeps the last measured inset and re-publishes it
+from Capacitor's own `WebViewListener.onPageLoaded`, which is exactly the
+moment there is a page to put it on, and again from `onResume` and
+`onWindowFocusChanged` for a return from the background.
+
+### The board is sized by its column, not by the window (Tob, 6 September 2026)
+
+`computeCellPx` measured the viewport, but the board sits in a column that
+`.screen` caps at 560px. On a desktop window a 14x14 board came out 700px wide
+inside that column and hung over the top bar, the stats row and the toolbar. The
+cap is now `BOARD_LAYOUT.maxContentWidth`, next to the padding constants it
+belongs with, and the layout test pins both the desktop case and a phone-width
+board that must not move.
+
+**A known limitation, recorded rather than fixed:** a _portrait_ viewport
+shorter than about 476px still overflows, because `isLandscape` requires the
+viewport to be wider than it is tall, and the 20px cell floor then forces a
+board taller than the space. It needs a split-screen, a foldable cover display
+or a resized desktop window to reach; no phone in portrait is that short. The
+landscape half of the same problem was fixed in August (see "Board layout
+revisited on a real phone").
+
+### Smaller things, same pass (Tob, 6 September 2026)
+
+- **`Math.random` is now banned across the whole app**, not just the engine and
+  the generator. The existing purity test only globbed those two directories, so
+  nothing stopped a random number appearing in the renderer or the input layer,
+  where it would make an animation or a colour unreproducible.
+- **The colour-blind label contrast test was checking a colour the canvas never
+  paints.** It asserted the numeral against `PATH_PALETTE`, but the renderer
+  fills the dot with `lineColor` — the palette colour lightened. The real
+  numbers are comfortable (the worst is navy at 11.6:1), so nothing changed on
+  screen; the test now measures what is actually drawn.
+- **A segmented control moves with the arrow keys.** It declares
+  `role="radiogroup"`, which tells a screen reader to expect radios, and radios
+  are moved between with arrows — every option was a separate Tab stop instead.
+- **A level tile's state is in its label, from `strings.ts`.** ", solved" and
+  " with a hint" were English literals concatenated onto a string-table value,
+  in an `aria-label` where no visual sweep would ever have found them.
+- **Dead code removed:** `S.hintUsed`, `ICONS.play`, `ICONS.close` and
+  `Sfx.close()`, none of which had a caller.

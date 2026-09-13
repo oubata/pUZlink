@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
             includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
             workbox: {
               // The whole app shell is precached; nothing is fetched at runtime.
-              globPatterns: ['**/*.{js,css,html,svg,png}'],
+              globPatterns: ['**/*.{js,css,html,svg,png,webp}'],
               navigateFallback: 'index.html',
               cleanupOutdatedCaches: true,
             },

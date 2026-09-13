@@ -28,6 +28,12 @@ export function attachPointerInput(
 
   const onPointerDown = (event: PointerEvent): void => {
     if (activePointer !== null) return;
+    /*
+     * The main button of the primary pointer, and nothing else. Without this a
+     * right-click starts a stroke and then the context menu opens on top of it,
+     * and a stylus barrel button does the same.
+     */
+    if (!event.isPrimary || event.button !== 0) return;
     const engine = getEngine();
     if (!engine || engine.won) return;
 
@@ -37,6 +43,7 @@ export function attachPointerInput(
     if (engine.begin(cell)) {
       activePointer = event.pointerId;
       capture(canvas, event.pointerId);
+      listenForRelease();
       event.preventDefault();
       const color = engine.activeColor;
       if (color !== EMPTY) {
@@ -59,9 +66,28 @@ export function attachPointerInput(
   const finish = (event: PointerEvent): void => {
     if (event.pointerId !== activePointer) return;
     activePointer = null;
+    stopListeningForRelease();
     release(canvas, event.pointerId);
     getEngine()?.end();
     hooks.onStrokeEnd?.();
+  };
+
+  /*
+   * Capture normally guarantees the release event comes back to the canvas even
+   * when the finger has left it. When `setPointerCapture` throws — it can, and
+   * the catch below is why the drag survives — nothing guarantees that, and a
+   * pointer released off the canvas left the stroke open forever: the engine
+   * stayed mid-stroke and Undo, Hint and Restart stayed disabled for good.
+   * These are the fallback, live only while a stroke is running.
+   */
+  const listenForRelease = (): void => {
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+  };
+
+  const stopListeningForRelease = (): void => {
+    window.removeEventListener('pointerup', finish);
+    window.removeEventListener('pointercancel', finish);
   };
 
   canvas.addEventListener('pointerdown', onPointerDown);
@@ -72,6 +98,7 @@ export function attachPointerInput(
 
   return () => {
     activePointer = null;
+    stopListeningForRelease();
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerup', finish);

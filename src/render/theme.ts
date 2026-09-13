@@ -51,6 +51,98 @@ export function pathColor(index: number): string {
   return PATH_PALETTE[index % PATH_PALETTE.length] ?? '#8C8C8C';
 }
 
+/**
+ * How a tier capsule on Home is moulded out of its one palette colour: how far
+ * the face is lightened at the top and darkened at the bottom, and how dark the
+ * edge under it goes. Small numbers — the capsule should read as one colour
+ * catching the light, not as a two-colour ramp.
+ */
+export const TIER_SURFACE = {
+  top: 0.2,
+  bottom: 0.12,
+  edge: 0.34,
+  /** The ink is white or near-black; nothing else clears on six hues. */
+  minLabelContrast: 4.5,
+  /** How far the face moves away from the ink per step, and how many are allowed. */
+  faceStep: 0.04,
+  maxFaceSteps: 14,
+} as const;
+
+export interface TierSurface {
+  /** The face at the middle of the capsule; the palette colour, or deeper. */
+  face: string;
+  top: string;
+  bottom: string;
+  edge: string;
+  /** White or near-black, whichever the label can be read in. */
+  ink: string;
+}
+
+const tierSurfaceCache = new Map<string, TierSurface>();
+
+/**
+ * The grey a locked capsule is moulded from: deep enough that white reads on
+ * it. A locked row cannot be made "off" with opacity any more — the artwork
+ * behind every screen would show straight through it, and take the unlock line
+ * with it.
+ */
+const LOCKED_TIER_BASE = '#5C6270';
+
+/**
+ * Mould one capsule out of `base`, given the ink it has to carry.
+ *
+ * The face is pushed away from the ink until the label clears 4.5:1 at *both*
+ * ends of the gradient, not just at the middle: a top highlight bright enough
+ * to read as moulded is also bright enough to swallow white text.
+ */
+function surfaceFrom(base: string, ink: string): TierSurface {
+  const inkIsLight = ink === '#FFFFFF';
+
+  let face = base;
+  for (let step = 0; step <= TIER_SURFACE.maxFaceSteps; step++) {
+    const amount = step * TIER_SURFACE.faceStep;
+    face =
+      step === 0
+        ? base
+        : inkIsLight
+          ? darken(base, amount)
+          : lighten(base, amount);
+    const worst = Math.min(
+      contrastRatio(ink, lighten(face, TIER_SURFACE.top)),
+      contrastRatio(ink, darken(face, TIER_SURFACE.bottom)),
+    );
+    if (worst >= TIER_SURFACE.minLabelContrast) break;
+  }
+
+  return {
+    face,
+    top: lighten(face, TIER_SURFACE.top),
+    bottom: darken(face, TIER_SURFACE.bottom),
+    edge: darken(face, TIER_SURFACE.edge),
+    ink,
+  };
+}
+
+/**
+ * Every colour an embossed tier capsule is painted in, derived from the tier's
+ * one palette colour. Four of the six hues need no adjustment; blue lightens
+ * and purple and red deepen a little.
+ */
+export function tierSurface(id: string): TierSurface {
+  const cached = tierSurfaceCache.get(id);
+  if (cached !== undefined) return cached;
+
+  const base = tierColor(id);
+  const surface = surfaceFrom(base, labelColorOn(base));
+  tierSurfaceCache.set(id, surface);
+  return surface;
+}
+
+/** The capsule a locked tier wears: the same mould, drained of its colour. */
+export function lockedTierSurface(): TierSurface {
+  return surfaceFrom(LOCKED_TIER_BASE, '#FFFFFF');
+}
+
 /** Canvas cannot resolve CSS custom properties, so the stack is repeated here. */
 export const UI_FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
@@ -84,6 +176,23 @@ export const BOARD_STYLE = {
    * two that need help; the rest clear this untouched.
    */
   minCellContrast: 1.45,
+  /*
+   * Cells are separate rounded tiles with the board showing between them, rather than one
+   * surface divided by hairlines. Both are fractions of the cell so they hold from a 20px
+   * Master cell up to a 72px Easy one.
+   */
+  cellGap: 0.08,
+  cellRadius: 0.18,
+  /*
+   * How far an empty tile sits from the board ground it is cut out of. Derived rather than
+   * taken from --cell-bg, which is only 8 levels off --bg in the dark theme (#1a1a1a on
+   * #121212): the tiles and the gaps between them were both simply black.
+   *
+   * Larger in the dark, where the eye needs more separation at the bottom of the range
+   * than it does near white.
+   */
+  tileLiftDark: 0.1,
+  tileLiftLight: 0.035,
   cornerRadius: 8,
   borderWidth: 2,
   gridWidth: 1,
@@ -134,6 +243,46 @@ export function applyThemeMode(root: HTMLElement, mode: ThemeMode): void {
 export function applyMotionMode(root: HTMLElement, mode: MotionMode): void {
   if (mode === 'system') root.removeAttribute('data-motion');
   else root.setAttribute('data-motion', mode === 'on' ? 'reduced' : 'full');
+}
+
+/**
+ * Watch the two OS preferences the app follows and call back when either moves.
+ *
+ * Both settings default to `system`, and the app read them once at startup: a
+ * light/dark switch while a board was open repainted the DOM through the CSS
+ * media query but left the canvas — whose colours are read from those custom
+ * properties in JS — frozen at whatever they were when the screen was built.
+ *
+ * Returns an unsubscribe. Safe where `matchMedia` is missing, and falls back to
+ * the deprecated `addListener` for WebViews that never got `addEventListener`
+ * on a MediaQueryList.
+ */
+export function watchSystemPreferences(onChange: () => void): () => void {
+  if (typeof matchMedia !== 'function') return () => {};
+
+  const queries = [
+    matchMedia('(prefers-color-scheme: dark)'),
+    matchMedia('(prefers-reduced-motion: reduce)'),
+  ];
+  const listener = (): void => onChange();
+
+  for (const query of queries) {
+    if (typeof query.addEventListener === 'function') {
+      query.addEventListener('change', listener);
+    } else {
+      query.addListener(listener);
+    }
+  }
+
+  return () => {
+    for (const query of queries) {
+      if (typeof query.removeEventListener === 'function') {
+        query.removeEventListener('change', listener);
+      } else {
+        query.removeListener(listener);
+      }
+    }
+  };
 }
 
 export function prefersReducedMotion(mode: MotionMode): boolean {

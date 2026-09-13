@@ -36,8 +36,10 @@ export const PWA_MANIFEST = {
   display: 'standalone' as const,
   // The board re-lays out on rotation (spec 5.5), so neither way is locked.
   orientation: 'any' as const,
-  background_color: '#FFFFFF',
-  theme_color: '#FFFFFF',
+  // The artwork's own ground: what a launch screen and the task switcher show
+  // before the first paint, so neither flashes white over a dark app.
+  background_color: '#0A2A63',
+  theme_color: '#0A2A63',
   categories: ['games', 'puzzle'],
   icons: PWA_ICONS,
 };

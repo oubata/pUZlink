@@ -1,3 +1,4 @@
+import { GENERATOR_VERSION } from '../../generator/difficulty';
 import { Engine } from '../../engine/engine';
 import type { Level } from '../../engine/types';
 import { BoardRenderer } from '../../render/BoardRenderer';
@@ -38,7 +39,7 @@ const DEMO: Level = {
     ],
   ],
   seed: 0,
-  generatorVersion: 1,
+  generatorVersion: GENERATOR_VERSION,
 };
 
 export interface HowToPlayProps {

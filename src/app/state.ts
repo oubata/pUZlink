@@ -1,4 +1,5 @@
 import type { TierId } from '../engine/types';
+import { isPaywalled } from './freeLimit';
 
 export interface WonResult {
   elapsedMs: number;
@@ -63,6 +64,13 @@ export class AppStateMachine {
   }
 
   toPlaying(tier: TierId, index: number): void {
+    // The pUZles free limit, enforced once: a level tile, Next after a solve and a
+    // resumed board all arrive here. Past it the player lands on that tier's grid,
+    // where the padlock and its label say why.
+    if (isPaywalled(tier, index)) {
+      this.set({ screen: { name: 'levelSelect', tier }, modal: null });
+      return;
+    }
     this.set({ screen: { name: 'playing', tier, index }, modal: null });
   }
 

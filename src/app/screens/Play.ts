@@ -1,11 +1,11 @@
 import { Engine } from '../../engine/engine';
 import { completedCount, coveragePercent } from '../../engine/queries';
-import type { Cell, Level } from '../../engine/types';
+import { EMPTY, type Cell, type Level } from '../../engine/types';
 import type { TierConfig } from '../../generator/difficulty';
 import { attachKeyboardInput } from '../../input/keyboard';
 import { attachPointerInput } from '../../input/pointer';
 import { BoardRenderer } from '../../render/BoardRenderer';
-import { ANIM } from '../config';
+import { ANIM, TIMER } from '../config';
 import { el, type View } from '../dom';
 import type { Feedback } from '../feedback';
 import { formatTime } from '../format';
@@ -29,7 +29,13 @@ export interface PlayProps {
   feedback: Feedback;
   onBack(): void;
   onPause(): void;
-  onWin(snapshot: PlaySnapshot): void;
+  /**
+   * The level is solved. Called synchronously at the moment the engine says so,
+   * before anything is animated, because this is what records the solve.
+   */
+  onSolved(snapshot: PlaySnapshot): void;
+  /** The win animation has finished and the results card can be shown. */
+  onWinShown(): void;
   onPersist(snapshot: PlaySnapshot | null): void;
   onConfirmRestart(): void;
 }
@@ -48,6 +54,7 @@ export class PlayView implements View {
   private readonly statLines: HTMLElement;
   private readonly statFilled: HTMLElement;
   private readonly statTime: HTMLElement;
+  private readonly pauseButton: HTMLButtonElement;
   private readonly undoButton: HTMLButtonElement;
   private readonly hintButton: HTMLButtonElement;
   private readonly restartButton: HTMLButtonElement;
@@ -57,6 +64,7 @@ export class PlayView implements View {
   private runningSince: number | null = null;
   private ticker = 0;
   private winTimer = 0;
+  private updateFrame = 0;
   private finished = false;
 
   constructor(props: PlayProps) {
@@ -81,6 +89,13 @@ export class PlayView implements View {
     this.statFilled = el('span', { class: 'stat' });
     this.statTime = el('span', { class: 'stat' });
 
+    this.pauseButton = el('button', {
+      class: 'icon-button',
+      html: ICONS.pause,
+      attrs: { type: 'button', 'aria-label': S.pause },
+      on: { click: () => this.props.onPause() },
+    });
+
     this.undoButton = toolButton(ICONS.undo, S.undo, () => this.undo());
     this.hintButton = toolButton(ICONS.hint, S.hint, () => this.hint());
     this.restartButton = toolButton(ICONS.restart, S.restart, () =>
@@ -99,22 +114,27 @@ export class PlayView implements View {
           class: 'topbar__title',
           text: S.playTitle(props.tier.name, props.level.index),
         }),
-        el('button', {
-          class: 'icon-button',
-          html: ICONS.pause,
-          attrs: { type: 'button', 'aria-label': S.pause },
-          on: { click: () => this.props.onPause() },
-        }),
+        this.pauseButton,
       ]),
       el('div', { class: 'board-wrap' }, [this.canvas]),
-      el(
-        'p',
-        {
-          class: 'stats',
-          attrs: { 'aria-live': 'polite', 'aria-atomic': 'true' },
-        },
-        [this.statLines, this.statFilled, this.statTime],
-      ),
+      /*
+       * Only the two counters are announced. The clock ticks four times a
+       * second, and while it sat inside this atomic live region every tick
+       * re-announced the whole row — "Lines 2/5, Filled 40%, 1:23" over and
+       * over, which drowns out the changes the region exists to report and
+       * makes the board unusable with a screen reader.
+       */
+      el('p', { class: 'stats' }, [
+        el(
+          'span',
+          {
+            class: 'stats__counts',
+            attrs: { 'aria-live': 'polite', 'aria-atomic': 'true' },
+          },
+          [this.statLines, this.statFilled],
+        ),
+        this.statTime,
+      ]),
       el('div', { class: 'toolbar' }, [
         this.undoButton,
         this.hintButton,
@@ -129,12 +149,26 @@ export class PlayView implements View {
     });
     this.renderer.setEngine(this.engine);
 
+    /*
+     * A saved board is all-or-nothing. `restore` refuses a path set that breaks
+     * an invariant — a hand-edited store, or a level that generates differently
+     * than it did when the board was saved — and the clock and the hint tally
+     * must not be applied on top of the empty board that leaves behind. Drop
+     * the save and start the level clean.
+     */
     if (props.restore) {
-      this.engine.restore(props.restore.paths);
-      if (props.restore.hintUsed) {
-        this.engine.markHintUsed(props.restore.hintCount);
+      const restored = this.engine.restore(
+        props.restore.paths,
+        props.restore.moves,
+      );
+      if (restored) {
+        if (props.restore.hintUsed) {
+          this.engine.markHintUsed(props.restore.hintCount);
+        }
+        this.elapsedBase = props.restore.elapsedMs;
+      } else {
+        props.onPersist(null);
       }
-      this.elapsedBase = props.restore.elapsedMs;
     }
 
     this.wire();
@@ -149,6 +183,7 @@ export class PlayView implements View {
   destroy(): void {
     this.stopTimer();
     window.clearTimeout(this.winTimer);
+    cancelAnimationFrame(this.updateFrame);
     for (const off of this.detach) off();
     this.detach = [];
     this.renderer.destroy();
@@ -156,23 +191,37 @@ export class PlayView implements View {
 
   // ---- Timer ------------------------------------------------------------
 
+  /*
+   * The clock accumulates tick by tick rather than measuring one span from the
+   * moment it started, so that no single stretch of wall time can add more than
+   * `TIMER.maxTickDeltaMs`. `performance.now()` keeps advancing while a device
+   * sleeps, and the pause that would stop the clock hangs off visibilitychange,
+   * which a hard suspend does not always fire.
+   */
+  private fold(now: number): number {
+    if (this.runningSince === null) return 0;
+    const delta = Math.min(now - this.runningSince, TIMER.maxTickDeltaMs);
+    this.runningSince = now;
+    return Math.max(0, delta);
+  }
+
   get elapsedMs(): number {
-    const live =
-      this.runningSince === null ? 0 : performance.now() - this.runningSince;
-    return this.elapsedBase + live;
+    if (this.runningSince === null) return this.elapsedBase;
+    // Reading the clock also folds: the getter is called on every repaint, so
+    // the live tail is never longer than one tick either.
+    this.elapsedBase += this.fold(performance.now());
+    return this.elapsedBase;
   }
 
   startTimer(): void {
     if (this.runningSince !== null || this.finished) return;
     this.runningSince = performance.now();
-    this.ticker = window.setInterval(() => this.updateTime(), 250);
+    this.ticker = window.setInterval(() => this.updateTime(), TIMER.tickMs);
   }
 
   stopTimer(): void {
-    if (this.runningSince !== null) {
-      this.elapsedBase += performance.now() - this.runningSince;
-      this.runningSince = null;
-    }
+    this.elapsedBase += this.fold(performance.now());
+    this.runningSince = null;
     window.clearInterval(this.ticker);
     this.ticker = 0;
     this.updateTime();
@@ -225,8 +274,12 @@ export class PlayView implements View {
       this.engine.on((event) => {
         if (event.type === 'pathCompleted') this.props.feedback.connect();
         if (event.type === 'pathCut') this.props.feedback.cut();
-        if (event.type === 'won') this.onWon();
-        this.update();
+        if (event.type === 'won') {
+          // The win is not deferred: it records the solve.
+          this.onWon();
+          return;
+        }
+        this.scheduleUpdate();
       }),
     );
 
@@ -259,8 +312,15 @@ export class PlayView implements View {
     });
   }
 
+  /*
+   * `won` guards the three tools as well as the buttons, because the keyboard
+   * reaches them directly. `Engine.undo` recomputes the win flag, so a `u` press
+   * under the results card used to un-win a level that was already recorded.
+   */
   private undo(): void {
-    if (this.engine.strokeActive || !this.engine.canUndo) return;
+    if (this.engine.strokeActive || this.engine.won || !this.engine.canUndo) {
+      return;
+    }
     this.engine.undo();
     this.props.feedback.tick();
     this.persist();
@@ -269,27 +329,19 @@ export class PlayView implements View {
 
   private hint(): void {
     if (this.engine.strokeActive || this.engine.won) return;
-    const color = this.firstDifferingColor();
+    // Ask the engine which colour it is about to draw, rather than working it
+    // out again here: the two answers used to be able to disagree.
+    const color = this.engine.nextHintColor();
     if (!this.engine.hint()) return;
     this.props.feedback.unlock();
     this.startTimer();
-    if (color >= 0) this.renderer.revealHint(color);
+    if (color !== EMPTY) this.renderer.revealHint(color);
     this.persist();
     this.update();
   }
 
-  private firstDifferingColor(): number {
-    for (let c = 0; c < this.props.level.pairs.length; c++) {
-      const solution = this.props.level.solution[c];
-      const path = this.engine.paths[c];
-      if (!solution || !path) continue;
-      if (path.length !== solution.length) return c;
-    }
-    return -1;
-  }
-
   private askRestart(): void {
-    if (this.engine.strokeActive) return;
+    if (this.engine.strokeActive || this.engine.won) return;
     if (!this.engine.hasDrawnCells) {
       this.restartLevel();
       return;
@@ -303,27 +355,46 @@ export class PlayView implements View {
     this.props.onBack();
   }
 
+  /*
+   * The solve is recorded here, synchronously, and only the results card waits
+   * for the animation. The two used to be one deferred call: the saved board was
+   * cleared immediately but the progress write sat behind this timer, so leaving
+   * the screen during the win animation — which `destroy()` does by cancelling
+   * the timer — lost the solve for good.
+   */
   private onWon(): void {
     if (this.finished) return;
     this.finished = true;
     this.stopTimer();
     this.props.feedback.win();
     this.renderer.playWin();
+    this.props.onSolved(this.snapshot());
     this.props.onPersist(null);
+    this.update();
 
-    const snapshot = this.snapshot();
     const stagger = this.props.reducedMotion
       ? 0
       : ANIM.winStagger * this.props.level.pairs.length + ANIM.cardSlide;
-    this.winTimer = window.setTimeout(
-      () => this.props.onWin(snapshot),
-      stagger,
-    );
+    this.winTimer = window.setTimeout(() => this.props.onWinShown(), stagger);
   }
 
   private persist(): void {
     if (this.engine.won) return;
     this.props.onPersist(this.snapshot());
+  }
+
+  /*
+   * One HUD repaint per frame. A fast drag interpolates through every cell it
+   * crossed and emits a `change` for each, and `update` rebuilds the whole
+   * occupancy grid to work out the filled percentage — fourteen full rebuilds
+   * inside one pointermove, synchronously, on the biggest boards.
+   */
+  private scheduleUpdate(): void {
+    if (this.updateFrame !== 0) return;
+    this.updateFrame = requestAnimationFrame(() => {
+      this.updateFrame = 0;
+      this.update();
+    });
   }
 
   private update(): void {
@@ -336,6 +407,10 @@ export class PlayView implements View {
       coveragePercent(level, this.engine.paths),
     );
     this.updateTime();
+
+    // Pausing a solved board does nothing — the machine refuses it — so the
+    // button goes rather than sitting there live and silent.
+    this.pauseButton.hidden = this.engine.won;
 
     const busy = this.engine.strokeActive || this.engine.won;
     setDisabled(this.undoButton, busy || !this.engine.canUndo);

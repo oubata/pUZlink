@@ -2,6 +2,7 @@ import {
   createChecks,
   filled,
   freshStart,
+  goHome,
   sleep,
   solveLevel,
   stats,
@@ -313,16 +314,23 @@ export default {
       return 1;
     `);
     await sleep(200);
+    // The body carries the artwork in both themes now, so what the theme moves
+    // is the ink and the panels under it: --bg is what the board and the modal
+    // cards are painted with.
     const themed = await page.evaluate(`
+      const styles = getComputedStyle(document.documentElement);
       return {
         attr: document.documentElement.getAttribute('data-theme'),
-        bg: getComputedStyle(document.body).backgroundColor,
+        bg: styles.getPropertyValue('--bg').trim(),
+        art: getComputedStyle(document.body).backgroundColor,
       };
     `);
     check(
       'dark theme applies immediately',
-      themed.attr === 'dark' && themed.bg === 'rgb(18, 18, 18)',
-      `${themed.attr} ${themed.bg}`,
+      themed.attr === 'dark' &&
+        themed.bg.toLowerCase() === '#121212' &&
+        themed.art === 'rgb(10, 42, 99)',
+      `${themed.attr} panel ${themed.bg} art ${themed.art}`,
     );
     await shot('05-settings-dark');
 
@@ -518,5 +526,32 @@ export default {
     await shot('08-howto');
 
     return results;
+
+    // ---- The back gesture is never swallowed -----------------------------
+    /*
+     * The app keeps a spare history entry to stand in for "there is somewhere
+     * to go back to". Returning to Home through the UI left that entry on the
+     * stack unconsumed, so the first back press at Home did nothing at all and
+     * the player had to press it twice to leave.
+     */
+    await goHome(page);
+    const guard = await page.evaluate(`
+      const before = history.length;
+      // Home -> Level select -> back to Home through the chevron.
+      document.querySelectorAll('.tier__button')[0].click();
+      return new Promise((resolve) => setTimeout(() => {
+        document.querySelector('.topbar .icon-button').click();
+        setTimeout(() => resolve({
+          before,
+          after: history.length,
+          screen: document.querySelector('.screen--home') !== null,
+        }), 400);
+      }, 400));
+    `);
+    check(
+      'coming back to Home leaves no spare history entry behind',
+      guard.screen === true && guard.after <= guard.before,
+      `history ${guard.before} -> ${guard.after}, home=${guard.screen}`,
+    );
   },
 };

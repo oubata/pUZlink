@@ -13,12 +13,21 @@ export interface ModalOptions {
   dismissible?: boolean;
 }
 
+/*
+ * A counter, not a hash of the title: two modals share a title often enough
+ * ("How to play" is both a button and a heading, "Restart" is both a tool and a
+ * confirmation), and during a swap the outgoing panel is still in the document
+ * while the incoming one is added — two live elements with the same id, and an
+ * `aria-labelledby` that could resolve to either.
+ */
+let modalSeq = 0;
+
 export function createModal(
   options: ModalOptions,
   body: (Node | string | null | undefined)[],
 ): View {
   const dismissible = options.dismissible ?? true;
-  const titleId = `modal-title-${Math.abs(hash(options.title))}`;
+  const titleId = `modal-title-${++modalSeq}`;
 
   const heading = el(
     'h2',
@@ -109,12 +118,4 @@ export function pillButton(
     attrs: { type: 'button' },
     on: { click: onClick },
   });
-}
-
-function hash(value: string): number {
-  let out = 0;
-  for (let i = 0; i < value.length; i++) {
-    out = (out * 31 + value.charCodeAt(i)) | 0;
-  }
-  return out;
 }

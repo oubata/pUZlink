@@ -19,7 +19,6 @@ function spies(): {
     win: record('sfx.win'),
     tick: record('sfx.tick'),
     unlock: record('sfx.unlock'),
-    close: record('sfx.close'),
   } as unknown as Sfx;
   const haptics = {
     connect: record('haptics.connect'),

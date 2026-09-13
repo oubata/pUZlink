@@ -7,7 +7,12 @@ import { createLevelSelect } from '../../src/app/screens/LevelSelect';
 import { recordSolve } from '../../src/app/progress';
 import { defaultProgress, type Progress } from '../../src/storage/persistence';
 import type { TierId } from '../../src/engine/types';
-import { PATH_PALETTE, withAlpha } from '../../src/render/theme';
+import {
+  PATH_PALETTE,
+  lockedTierSurface,
+  tierSurface,
+  withAlpha,
+} from '../../src/render/theme';
 
 const AT = '2026-08-27T10:00:00.000Z';
 
@@ -287,12 +292,42 @@ describe('tier colours', () => {
     document.querySelectorAll('.screen--home').forEach((n) => n.remove());
   });
 
-  it('gives each row a wash derived from its own colour', () => {
+  it("paints every part of a capsule from that row's own colour", () => {
     const rows = homeRows(defaultProgress());
     for (const row of rows) {
-      const colour = row.style.getPropertyValue('--tier-color').trim();
-      const wash = row.style.getPropertyValue('--tier-wash').trim();
-      expect(wash).toBe(withAlpha(colour, 0.09));
+      const id = row.querySelector('.tier__name')?.textContent ?? '';
+      // A locked row is moulded from grey instead, so that it stays opaque
+      // over the artwork rather than being dimmed with an opacity.
+      const surface = row.classList.contains('tier--locked')
+        ? lockedTierSurface()
+        : tierSurface(id.toLowerCase());
+      const read = (name: string): string =>
+        row.style.getPropertyValue(name).trim();
+      expect(read('--tier-face')).toBe(surface.face);
+      expect(read('--tier-top')).toBe(surface.top);
+      expect(read('--tier-bottom')).toBe(surface.bottom);
+      expect(read('--tier-edge')).toBe(surface.edge);
+      expect(read('--tier-ink')).toBe(surface.ink);
+      expect(read('--tier-track')).toBe(withAlpha(surface.ink, 0.25));
+      expect(read('--tier-fill')).toBe(withAlpha(surface.ink, 0.85));
+    }
+    document.querySelectorAll('.screen--home').forEach((n) => n.remove());
+  });
+
+  it('moulds every locked row from the same grey, in white ink', () => {
+    const locked = homeRows(defaultProgress()).filter((row) =>
+      row.classList.contains('tier--locked'),
+    );
+    expect(locked.length).toBeGreaterThan(0);
+    for (const row of locked) {
+      expect(row.style.getPropertyValue('--tier-face').trim()).toBe(
+        lockedTierSurface().face,
+      );
+      expect(row.style.getPropertyValue('--tier-ink').trim()).toBe('#FFFFFF');
+      // Its own colour is still on the row: only the capsule is drained.
+      expect(PATH_PALETTE).toContain(
+        row.style.getPropertyValue('--tier-color').trim(),
+      );
     }
     document.querySelectorAll('.screen--home').forEach((n) => n.remove());
   });

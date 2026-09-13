@@ -1,7 +1,7 @@
 {
   "name": "color-link",
   "private": true,
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,6 +15,7 @@
     "verify:pwa": "node scripts/verify/pwa.mjs",
     "build:native": "vite build --mode native",
     "apk": "node scripts/android/build-apk.mjs",
+    "android:open": "node scripts/android/open-studio.mjs",
     "unlock:device": "node scripts/device/unlock-tiers.mjs"
   },
   "devDependencies": {

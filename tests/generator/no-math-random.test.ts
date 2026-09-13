@@ -17,6 +17,17 @@ const engineSources = import.meta.glob('../../src/engine/**/*.ts', {
   eager: true,
 }) as Record<string, string>;
 
+/**
+ * Everything else. These layers may use the DOM and the clock — that is what
+ * they are for — but a random number anywhere in the app would make a level, a
+ * colour or an animation unreproducible, and every one of them is meant to be
+ * derived from the seed or from state.
+ */
+const appSources = import.meta.glob(
+  '../../src/{app,render,input,audio,storage}/**/*.ts',
+  { query: '?raw', import: 'default', eager: true },
+) as Record<string, string>;
+
 function offenders(
   sources: Record<string, string>,
   tokens: readonly string[],
@@ -73,5 +84,15 @@ describe('engine purity (spec 11.1)', () => {
     expect(
       offenders(engineSources, ['Math.random', 'document.', 'window.']),
     ).toEqual([]);
+  });
+});
+
+describe('the rest of the app is deterministic too', () => {
+  it('finds the app, render, input, audio and storage sources', () => {
+    expect(Object.keys(appSources).length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('never reaches for Math.random', () => {
+    expect(offenders(appSources, ['Math.random'])).toEqual([]);
   });
 });

@@ -5,6 +5,7 @@ import {
   applyMotionMode,
   applyThemeMode,
   prefersReducedMotion,
+  watchSystemPreferences,
 } from '../render/theme';
 import {
   Persistence,
@@ -37,6 +38,7 @@ import {
   sameScreen,
   type ModalName,
   type Screen,
+  type WonResult,
 } from './state';
 
 export interface AppOptions {
@@ -56,8 +58,20 @@ export class App {
 
   private screenView: View | null = null;
   private modalView: View | null = null;
+  private watchSystem: (() => void) | null = null;
   private play: PlayView | null = null;
   private mountedScreen: Screen = { name: 'boot' };
+
+  /**
+   * A solve that has been recorded and is waiting on the win animation before
+   * its card is shown. It holds no state the player can lose: if they leave
+   * first, this is dropped and the level stays solved.
+   */
+  private pendingWon: {
+    tier: TierId;
+    index: number;
+    result: WonResult;
+  } | null = null;
 
   constructor(options: AppOptions) {
     this.root = options.root;
@@ -71,6 +85,18 @@ export class App {
     this.feedback = feedback;
   }
 
+  /**
+   * Release what `start` subscribed to. The shipped app runs one App for the
+   * life of the process and never calls this; it exists so a test can build one
+   * without leaving an OS-preference listener behind.
+   */
+  destroy(): void {
+    this.watchSystem?.();
+    this.watchSystem = null;
+    this.play?.destroy();
+    this.play = null;
+  }
+
   get currentSettings(): Settings {
     return this.settings;
   }
@@ -82,8 +108,19 @@ export class App {
       this.syncHistory();
     });
     document.addEventListener('visibilitychange', () => this.onVisibility());
+    /*
+     * visibilitychange covers backgrounding; pagehide covers the rest — a tab
+     * closing, a navigation away, a WebView being torn down. Saving twice is
+     * free, and the board is otherwise only written at the end of a stroke.
+     */
+    window.addEventListener('pagehide', () => this.savePlayState());
     window.addEventListener('popstate', () => this.onPopState());
-    void this.wireNativeBackButton();
+    this.wireNativeBackButton().catch((error: unknown) => {
+      // Without the listener the platform default finishes the activity from
+      // any screen, which is the bug it exists to fix — so say so out loud.
+      console.error('Native back button unavailable', error);
+    });
+    this.watchSystem = watchSystemPreferences(() => this.onSystemChange());
 
     /*
      * A dev-only handle for the verification harness. Hints are capped at two,
@@ -142,6 +179,20 @@ export class App {
     return prefersReducedMotion(this.settings.reducedMotion);
   }
 
+  /**
+   * The OS switched light/dark or reduced motion under us. Both settings resolve
+   * `system` themselves, so re-applying whatever is stored is the whole job —
+   * and it is the same path the Settings modal takes, which repaints the canvas
+   * with the new palette rather than leaving it on the old one.
+   */
+  private onSystemChange(): void {
+    this.applySettings();
+    this.play?.setOptions({
+      colorBlindLabels: this.settings.colorBlind,
+      reducedMotion: this.reducedMotion,
+    });
+  }
+
   // ---- Visibility -------------------------------------------------------
 
   private onVisibility(): void {
@@ -152,7 +203,14 @@ export class App {
     }
   }
 
+  /*
+   * A solved board is never paused. The state machine already refuses Paused on
+   * the `won` screen, but between the engine winning and the card appearing the
+   * screen is still `playing` — and Paused offers Restart, which wiped the board
+   * out from under the solve that was about to be shown.
+   */
   private pause(): void {
+    if (this.play?.engine.won) return;
     this.play?.stopTimer();
     this.savePlayState();
     this.machine.pause();
@@ -180,6 +238,13 @@ export class App {
       boardMatches(this.mountedScreen, screen);
 
     if (!sameScreen(this.mountedScreen, screen) && !keepBoard) {
+      /*
+       * The modal goes first. `clear` detaches everything, so tearing the modal
+       * down afterwards ran its destroy on nodes that were already out of the
+       * document — which is where focus restoration and the How to play board
+       * renderer both live.
+       */
+      this.teardownModal();
       this.screenView?.destroy?.();
       clear(this.root);
       this.screenView = this.buildScreen(screen);
@@ -195,8 +260,7 @@ export class App {
     // controls that no longer apply.
     this.screenView?.el.classList.toggle('is-won', screen.name === 'won');
 
-    this.modalView?.destroy?.();
-    this.modalView?.el.remove();
+    this.teardownModal();
     this.modalView = modal ? this.buildModal(modal) : null;
     if (this.modalView) {
       this.root.append(this.modalView.el);
@@ -208,6 +272,21 @@ export class App {
       this.root.append(this.modalView.el);
       this.modalView.mounted?.();
     }
+
+    /*
+     * Everything behind an open modal is inert: not clickable, not tabbable,
+     * and not reachable by a screen reader's virtual cursor. `aria-modal` alone
+     * only tells assistive technology to behave; it does not stop a click or a
+     * keypress, and under the results card the board keeps real focus and live
+     * keyboard shortcuts without it.
+     */
+    this.screenView?.el.toggleAttribute('inert', this.modalView !== null);
+  }
+
+  private teardownModal(): void {
+    this.modalView?.destroy?.();
+    this.modalView?.el.remove();
+    this.modalView = null;
   }
 
   private buildScreen(screen: Screen): View | null {
@@ -246,6 +325,7 @@ export class App {
     const restore = saved && saved.levelId === level.id ? saved : null;
 
     this.play?.destroy();
+    this.pendingWon = null;
     this.play = new PlayView({
       level,
       tier,
@@ -255,7 +335,8 @@ export class App {
       feedback: this.feedback,
       onBack: () => this.machine.toLevelSelect(tierId),
       onPause: () => this.pause(),
-      onWin: (snapshot) => this.finishLevel(tier, index, snapshot),
+      onSolved: (snapshot) => this.recordWin(tier, index, snapshot),
+      onWinShown: () => this.showWon(),
       onPersist: (snapshot) =>
         this.persistence.saveInProgress(
           snapshot ? { levelId: level.id, ...snapshot } : null,
@@ -347,7 +428,13 @@ export class App {
     const { App: NativeApp } = await import('@capacitor/app');
     await NativeApp.addListener('backButton', () => {
       if (this.atRoot) {
-        void NativeApp.exitApp();
+        /*
+         * Back at Home behaves like Home: the task goes to the background and
+         * stays in Recents with its board intact. `exitApp` finished the
+         * activity instead, which threw away the resume state the app had just
+         * saved and made a return a cold start.
+         */
+        void NativeApp.minimizeApp();
         return;
       }
       this.goBack();
@@ -355,7 +442,23 @@ export class App {
   }
 
   private syncHistory(): void {
-    if (this.atRoot || this.historyGuard) return;
+    /*
+     * Back at the root: the guard entry has to go, or it sits on the stack
+     * unconsumed and swallows the next back press — the player pressed back at
+     * Home, nothing happened, and only a second press left the app. Popping it
+     * here fires a popstate that the handler below ignores, because by then
+     * there is nothing left to unwind.
+     */
+    if (this.atRoot) {
+      // Only ever pop an entry this app pushed. Checking the state as well as
+      // the flag keeps it honest if anything else has navigated in between.
+      if (this.historyGuard) {
+        this.historyGuard = false;
+        if (isGuardEntry(history.state)) history.back();
+      }
+      return;
+    }
+    if (this.historyGuard) return;
     history.pushState({ colorlink: true }, '');
     this.historyGuard = true;
   }
@@ -430,7 +533,12 @@ export class App {
     this.machine.toLevelSelect(tierId);
   }
 
-  private finishLevel(
+  /**
+   * Write the solve, the instant the board is solved. Nothing here waits for the
+   * animation: leaving the screen while the pairs are still lighting up cancels
+   * the card, and used to cancel the record with it.
+   */
+  private recordWin(
     tier: TierConfig,
     index: number,
     snapshot: PlaySnapshot,
@@ -453,14 +561,35 @@ export class App {
     this.persistence.clearInProgress();
 
     const record = solvedRecord(progress, tier.id, index);
-    this.machine.toWon({
-      elapsedMs: snapshot.elapsedMs,
-      bestMs: record?.bestMs ?? snapshot.elapsedMs,
-      newBest,
-      hintUsed: snapshot.hintUsed,
-      hintCount: snapshot.hintCount,
-      perfect,
-    });
+    this.pendingWon = {
+      tier: tier.id,
+      index,
+      result: {
+        elapsedMs: snapshot.elapsedMs,
+        bestMs: record?.bestMs ?? snapshot.elapsedMs,
+        newBest,
+        hintUsed: snapshot.hintUsed,
+        hintCount: snapshot.hintCount,
+        perfect,
+      },
+    };
+  }
+
+  /** The animation is over: show the card, if the player is still on it. */
+  private showWon(): void {
+    const pending = this.pendingWon;
+    if (!pending) return;
+    this.pendingWon = null;
+
+    const screen = this.machine.screen;
+    if (
+      screen.name !== 'playing' ||
+      screen.tier !== pending.tier ||
+      screen.index !== pending.index
+    ) {
+      return;
+    }
+    this.machine.toWon(pending.result);
   }
 
   private resetProgress(): void {
@@ -470,6 +599,7 @@ export class App {
     this.applySettings();
     this.play?.destroy();
     this.play = null;
+    this.pendingWon = null;
     this.mountedScreen = { name: 'boot' };
     this.machine.toHome();
   }
@@ -477,6 +607,15 @@ export class App {
 
 function toInProgress(play: PlayView): InProgress {
   return { levelId: play.engine.level.id, ...play.snapshot() };
+}
+
+/** The spare history entry `syncHistory` pushes, and nothing else. */
+function isGuardEntry(state: unknown): boolean {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    (state as { colorlink?: unknown }).colorlink === true
+  );
 }
 
 function boardMatches(a: Screen, b: Screen): boolean {

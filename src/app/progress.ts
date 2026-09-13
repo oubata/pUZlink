@@ -1,6 +1,7 @@
 import type { TierId } from '../engine/types';
 import { TIERS, tierById, type TierConfig } from '../generator/difficulty';
 import type { Progress, SolvedRecord } from '../storage/persistence';
+import { isPaywalled, isTierPaywalled } from './freeLimit';
 
 export interface SolveResult {
   elapsedMs: number;
@@ -30,6 +31,8 @@ export function isSolved(
 
 /** Spec 11.2: a tier opens once its gate tier has enough solves. */
 export function isUnlocked(tier: TierConfig, progress: Progress): boolean {
+  // A free hub player gets one tier. Outside the hub this is always false.
+  if (isTierPaywalled(tier.id)) return false;
   if (tier.unlock === null) return true;
   return solvedCount(progress, tier.unlock.tier) >= tier.unlock.solved;
 }
@@ -91,9 +94,26 @@ export function isLevelUnlocked(
   tier: TierId,
   index: number,
 ): boolean {
+  if (isPaywalled(tier, index)) return false;
   if (index <= 1) return true;
   if (isSolved(progress, tier, index)) return true;
   return isSolved(progress, tier, index - 1);
+}
+
+/**
+ * Why a level is not open — the two reasons need different words. "Solve level 12 first"
+ * is something the player can act on here; past the pUZles free limit there is nothing to
+ * solve, and the answer is in the hub.
+ */
+export type LockReason = 'none' | 'progress' | 'hub';
+
+export function lockReason(
+  progress: Progress,
+  tier: TierId,
+  index: number,
+): LockReason {
+  if (isLevelUnlocked(progress, tier, index)) return 'none';
+  return isPaywalled(tier, index) ? 'hub' : 'progress';
 }
 
 /** The level the grid suggests next: the first unsolved one, else level 1. */

@@ -1,0 +1,6 @@
+# Generated Android files. Prettier reads only the root .gitignore, not
+# android/.gitignore, so without this it reformats the web bundle Capacitor
+# copies in and everything Gradle leaves behind — all of it overwritten by the
+# next `cap sync` or build.
+android/app/src/main/assets/
+android/**/build/

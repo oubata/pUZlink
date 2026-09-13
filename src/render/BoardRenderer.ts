@@ -11,9 +11,12 @@ import {
 import {
   BOARD_STYLE,
   cellColor,
+  darken,
   labelColorOn,
+  lighten,
   lineColor,
   readBoardColors,
+  relativeLuminance,
   UI_FONT_STACK,
   withAlpha,
   type BoardColors,
@@ -44,6 +47,9 @@ export class BoardRenderer {
 
   private layout: BoardLayout = { size: 1, cellPx: 1, boardPx: 1, dpr: 1 };
   private colors: BoardColors;
+  /** Per-colour cell tints, rebuilt whenever the palette changes. */
+  private readonly tintCache = new Map<number, string>();
+  private tileFillCache: string | null = null;
   private options: RenderOptions = {
     colorBlindLabels: false,
     reducedMotion: false,
@@ -92,6 +98,8 @@ export class BoardRenderer {
   /** Re-read the CSS custom properties after a theme change. */
   refreshColors(): void {
     this.colors = readBoardColors(this.root);
+    this.tintCache.clear();
+    this.tileFillCache = null;
     this.requestDraw();
   }
 
@@ -224,7 +232,7 @@ export class BoardRenderer {
     const at = now();
     this.expireEffects(at);
 
-    const { boardPx, cellPx } = this.layout;
+    const { boardPx } = this.layout;
     context.clearRect(0, 0, boardPx, boardPx);
 
     context.save();
@@ -238,10 +246,11 @@ export class BoardRenderer {
     );
     context.clip();
 
-    context.fillStyle = this.colors.cellBackground;
+    // The ground behind the tiles; what shows through the gaps between them.
+    context.fillStyle = this.colors.background;
     context.fillRect(0, 0, boardPx, boardPx);
 
-    this.drawGrid(context);
+    this.drawCells(context);
     this.drawTints(context, engine);
     this.drawCuts(context, at);
     this.drawPaths(context, engine, at);
@@ -261,10 +270,11 @@ export class BoardRenderer {
     context.stroke();
 
     if (this.cursorVisible && this.cursor) {
-      const { x, y } = cellOrigin(this.layout, this.cursor);
       context.strokeStyle = this.colors.accent;
       context.lineWidth = BOARD_STYLE.cursorWidth;
-      context.strokeRect(x + 2, y + 2, cellPx - 4, cellPx - 4);
+      context.beginPath();
+      this.tilePath(context, this.cursor);
+      context.stroke();
     }
 
     if (this.animating(at)) this.requestDraw();
@@ -288,39 +298,91 @@ export class BoardRenderer {
     }
   }
 
-  private drawGrid(context: CanvasRenderingContext2D): void {
-    const { size, cellPx, boardPx } = this.layout;
-    context.strokeStyle = this.colors.gridLine;
-    context.lineWidth = BOARD_STYLE.gridWidth;
-    context.beginPath();
-    for (let i = 1; i < size; i++) {
-      const at = Math.round(i * cellPx) + 0.5;
-      context.moveTo(at, 0);
-      context.lineTo(at, boardPx);
-      context.moveTo(0, at);
-      context.lineTo(boardPx, at);
+  /**
+   * One rounded tile per cell, inset so the board shows between them.
+   *
+   * This replaced a flat fill plus hairline gridlines. The lines read as a single ruled
+   * surface; separate tiles are what the genre looks like, and the path drawn afterwards
+   * runs on the full cell pitch, so it bridges the gaps rather than being broken by them.
+   */
+  private drawCells(context: CanvasRenderingContext2D): void {
+    const { size } = this.layout;
+    context.fillStyle = this.tileFill;
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        context.beginPath();
+        this.tilePath(context, [row, col]);
+        context.fill();
+      }
     }
-    context.stroke();
   }
 
-  /** The fill for a cell this colour occupies, whatever state its line is in. */
-  private tintFor(color: number): string {
-    return withAlpha(
-      cellColor(color, this.colors.cellBackground),
-      BOARD_STYLE.tintAlpha,
+  /**
+   * The fill for an empty tile: the board ground, stepped away from itself so the gaps
+   * between tiles are visible in either theme.
+   */
+  private get tileFill(): string {
+    if (this.tileFillCache !== null) return this.tileFillCache;
+    const ground = this.colors.background;
+    const fill =
+      relativeLuminance(ground) > 0.5
+        ? darken(ground, BOARD_STYLE.tileLiftLight)
+        : lighten(ground, BOARD_STYLE.tileLiftDark);
+    this.tileFillCache = fill;
+    return fill;
+  }
+
+  /** The rounded rect for one cell, inset by half the gap on every side. */
+  private tilePath(context: CanvasRenderingContext2D, cell: Cell): void {
+    const { cellPx } = this.layout;
+    const inset = (cellPx * BOARD_STYLE.cellGap) / 2;
+    const { x, y } = cellOrigin(this.layout, cell);
+    roundedRectPath(
+      context,
+      x + inset,
+      y + inset,
+      cellPx - inset * 2,
+      cellPx - inset * 2,
+      cellPx * BOARD_STYLE.cellRadius,
     );
   }
 
+  /** The fill for a cell this colour occupies, whatever state its line is in. */
+  /*
+   * Cached because this is called once per occupied cell per frame, and
+   * `withAlpha` re-parses a hex string and builds a new `rgba()` string every
+   * time: on a full 14x14 board that was 196 throwaway strings a frame. Cleared
+   * whenever the palette underneath it can have changed.
+   */
+  private tintFor(color: number): string {
+    const cached = this.tintCache.get(color);
+    if (cached !== undefined) return cached;
+    const tint = withAlpha(
+      cellColor(color, this.colors.cellBackground),
+      BOARD_STYLE.tintAlpha,
+    );
+    this.tintCache.set(color, tint);
+    return tint;
+  }
+
   private drawTints(context: CanvasRenderingContext2D, engine: Engine): void {
-    const { size, cellPx } = this.layout;
+    const { size } = this.layout;
     for (let row = 0; row < size; row++) {
       for (let col = 0; col < size; col++) {
         const cell: Cell = [row, col];
         const occupant = engine.occupantAt(cell);
         if (occupant === EMPTY) continue;
-        const { x, y } = cellOrigin(this.layout, cell);
+        /*
+         * The tile, not the full cell: paint stops at the gap, as it does in the reference.
+         * Filling edge to edge was tried and looked wrong — the gaps are what make the grid
+         * legible, and closing them under a path turns a run into one undifferentiated
+         * slab. The pale line drawn afterwards runs on the full cell pitch, so it crosses
+         * the gaps and carries the continuity on its own.
+         */
         context.fillStyle = this.tintFor(occupant);
-        context.fillRect(x, y, cellPx, cellPx);
+        context.beginPath();
+        this.tilePath(context, cell);
+        context.fill();
       }
     }
   }

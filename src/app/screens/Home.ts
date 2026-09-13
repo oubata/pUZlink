@@ -3,9 +3,16 @@ import { TIERS, tierById, type TierConfig } from '../../generator/difficulty';
 import type { Progress } from '../../storage/persistence';
 import { APP_NAME } from '../config';
 import { el, type View } from '../dom';
+import { hubReturnButton } from '../hubReturn';
 import { APP_MARK, ICONS } from '../icons';
-import { tierColor, withAlpha } from '../../render/theme';
+import {
+  lockedTierSurface,
+  tierColor,
+  tierSurface,
+  withAlpha,
+} from '../../render/theme';
 import { isUnlocked, solvedCount } from '../progress';
+import { isTierPaywalled } from '../freeLimit';
 import { S } from '../strings';
 
 export interface HomeProps {
@@ -19,6 +26,9 @@ export function createHome(props: HomeProps): View {
   const rows = TIERS.map((tier) => tierRow(tier, props));
 
   const root = el('main', { class: 'screen screen--home' }, [
+    // Back to the hub, when the hub launched us; null otherwise (§11.5.2). Above the
+    // branding header rather than inside it, which is centred.
+    hubReturnButton(),
     el('header', { class: 'home__header' }, [
       el('div', { class: 'home__mark', html: APP_MARK }),
       el('h1', { class: 'home__title', text: APP_NAME }),
@@ -64,7 +74,17 @@ function tierRow(tier: TierConfig, props: HomeProps): HTMLElement {
     ]),
   ];
 
-  if (!unlocked && tier.unlock) {
+  if (!unlocked && isTierPaywalled(tier.id)) {
+    /*
+     * Held back by the pUZles hub, not by the ladder. Without this branch the row
+     * simply went quiet — no padlock, no reason — because the tiers the hub locks
+     * (Normal, Hard) have no `unlock` gate of their own to explain them.
+     */
+    content.push(
+      el('span', { class: 'tier__lock', html: ICONS.lock }),
+      el('span', { class: 'tier__unlock', text: S.unlockInHub }),
+    );
+  } else if (!unlocked && tier.unlock) {
     const gate = tierById(tier.unlock.tier);
     content.push(
       el('span', { class: 'tier__lock', html: ICONS.lock }),
@@ -96,16 +116,29 @@ function tierRow(tier: TierConfig, props: HomeProps): HTMLElement {
         content,
       );
 
-  // The row carries its tier's colour as a custom property, so the rail, the
-  // wash and the progress bar all read from one value.
+  // Every part of the capsule — face, highlight, moulded edge, label and
+  // progress strip — is derived from the tier's one palette colour and handed
+  // to the stylesheet as custom properties, so the CSS states the shape and
+  // this states the colour.
+  // A locked capsule is moulded from grey rather than dimmed with opacity:
+  // the artwork behind the screen would otherwise show straight through it.
   const color = tierColor(tier.id);
+  const surface = unlocked ? tierSurface(tier.id) : lockedTierSurface();
+  const style = [
+    `--tier-color: ${color}`,
+    `--tier-face: ${surface.face}`,
+    `--tier-top: ${surface.top}`,
+    `--tier-bottom: ${surface.bottom}`,
+    `--tier-edge: ${surface.edge}`,
+    `--tier-ink: ${surface.ink}`,
+    `--tier-track: ${withAlpha(surface.ink, 0.25)}`,
+    `--tier-fill: ${withAlpha(surface.ink, 0.85)}`,
+  ].join('; ');
   return el(
     'li',
     {
       class: `tier${unlocked ? '' : ' tier--locked'}`,
-      attrs: {
-        style: `--tier-color: ${color}; --tier-wash: ${withAlpha(color, 0.09)}`,
-      },
+      attrs: { style },
     },
     [inner],
   );

@@ -28,7 +28,7 @@ export class Sfx {
   /** Called on the first gesture so the context is warm before the first note. */
   unlock(): void {
     const context = this.ensure();
-    if (context && context.state === 'suspended') void context.resume();
+    if (context) resume(context);
   }
 
   /** Two-note rising blip: a pair just joined. */
@@ -59,12 +59,6 @@ export class Sfx {
     this.play([{ hz: 1000, ms: 20, wave: 'sine' }]);
   }
 
-  close(): void {
-    void this.context?.close();
-    this.context = null;
-    this.master = null;
-  }
-
   private ensure(): AudioContext | null {
     if (this.context) return this.context;
     if (this.failed) return null;
@@ -86,7 +80,7 @@ export class Sfx {
     const context = this.ensure();
     const master = this.master;
     if (!context || !master) return;
-    if (context.state === 'suspended') void context.resume();
+    resume(context);
 
     let at = context.currentTime;
     for (const note of notes) {
@@ -110,4 +104,21 @@ export class Sfx {
       at += seconds;
     }
   }
+}
+
+/**
+ * Wake a context that is not running.
+ *
+ * Two things beyond the obvious `suspended`. iOS parks a context at
+ * `interrupted` after a phone call or a switch away, which is not in the spec'd
+ * `AudioContextState` union but is what Safari reports; and `resume()` returns a
+ * promise that rejects if the context has been closed or the call is not
+ * gesture-backed. Neither should reach the player as an unhandled rejection.
+ */
+function resume(context: AudioContext): void {
+  const state: string = context.state;
+  if (state === 'running' || state === 'closed') return;
+  void context.resume().catch(() => {
+    // Nothing to do: the next gesture tries again.
+  });
 }

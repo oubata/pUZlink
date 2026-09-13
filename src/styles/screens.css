@@ -1,5 +1,65 @@
 /* ---- Shared chrome ----------------------------------------------------- */
 
+/*
+ * Everything that sits directly on the artwork rather than on a surface of its
+ * own: white ink with the outline from base.css. It does not follow the theme,
+ * because the picture behind it does not either. A panel — a modal, the board,
+ * a tier capsule, a level tile — carries its own ground and keeps the theme's
+ * ink instead.
+ */
+/* Up where the picture is deep blue: white ink, dark ring. */
+.topbar__title,
+.topbar__trailing,
+.screen--home > .home__header,
+.screen > .topbar > .icon-button {
+  color: var(--ink-on-art);
+  text-shadow: var(--ink-shadow);
+}
+
+.screen > .topbar > .icon-button svg {
+  filter: var(--ink-drop);
+}
+
+/*
+ * Down in the lit foot of the picture: the mirror of it. The stats and toolbar
+ * sit under the board, and the Home footer on the last eighth of the screen —
+ * both in the near-white region, where white ink survives on a tenth of the
+ * pixels.
+ *
+ * Buttons are listed one by one on purpose: a button inherits neither the
+ * outline from the row it sits in nor its colour, since .text-button and
+ * .icon-button set a colour of their own.
+ */
+.screen--home > .home__footer,
+.screen--home > .home__footer .text-button,
+.screen--home > .home__footer .icon-button {
+  color: var(--ink-on-lit-art);
+  text-shadow: var(--ink-lit-shadow);
+}
+
+/* The two smallest things on the app, over the busiest part of the picture. */
+.stats,
+.tool {
+  color: var(--ink-on-lit-art);
+  text-shadow: var(--ink-lit-shadow-heavy);
+}
+
+.screen--home > .home__footer .icon-button svg,
+.tool__icon svg {
+  filter: var(--ink-lit-drop);
+}
+
+/* The focus ring takes the colour of whichever ink it is following. */
+.screen > .topbar > .icon-button:focus-visible,
+.tier__button:focus-visible {
+  outline-color: var(--ink-on-art);
+}
+
+.screen--home > .home__footer button:focus-visible,
+.tool:focus-visible {
+  outline-color: var(--ink-on-lit-art);
+}
+
 .screen {
   flex: 1;
   display: flex;
@@ -26,9 +86,10 @@
   text-align: center;
 }
 
+/* No colour here: this rule comes after the on-art ink group above and would
+   quietly win, putting grey text on the artwork at about 2.7:1. */
 .topbar__trailing {
   font-size: 14px;
-  color: var(--text-secondary);
   text-align: right;
 }
 
@@ -44,6 +105,14 @@
 
 .icon-button:hover {
   background: var(--cell-bg);
+}
+
+.screen > .topbar > .icon-button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.screen--home > .home__footer .icon-button:hover {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .text-button {
@@ -101,15 +170,25 @@
  */
 .screen--home {
   gap: var(--space-3);
+  /* Everything the six capsules are packed with, in one place, so the
+     screen-height rules below can tighten or loosen the lot together. */
+  --tier-gap: 10px;
+  --tier-pad-y: var(--space-3);
+  --tier-bar-bottom: 6px;
 }
 
 .home__header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Off the very top edge. This comes out of the slack around the tier list,
-     so the short-screen rules below taper it back to nothing. */
-  padding: var(--space-6) 0 0;
+  /*
+   * Off the very top edge. This comes out of the slack around the tier list,
+   * so the short-screen rules below taper it back to nothing — and the status
+   * bar's own inset counts towards it rather than adding to it, since it is
+   * already holding the masthead clear of the edge. On a phone with a 44px
+   * status bar this padding is simply gone.
+   */
+  padding: max(0px, calc(var(--space-6) - var(--inset-top))) 0 0;
   text-align: center;
 }
 
@@ -134,93 +213,139 @@
 .home__tagline {
   margin-top: 2px;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ink-on-art-2);
+}
+
+/* The mark is two palette colours on a strand; the ring gives it an edge
+   where it crosses the picture's own bright faces. */
+.home__mark svg {
+  filter: var(--ink-drop);
 }
 
 .tiers {
   display: flex;
   flex-direction: column;
+  gap: var(--tier-gap);
   /* Centred between the masthead and the footer, rather than sitting under the
      masthead with all the slack dumped above the footer. */
   margin-top: auto;
   margin-bottom: auto;
 }
 
-.tier {
-  border-top: 1px solid var(--hairline);
-}
-
-.tier:last-child {
-  border-bottom: 1px solid var(--hairline);
-}
-
 /*
- * Each tier carries its own colour, so the ladder reads at a glance: a rail
- * down the leading edge, a light wash behind the row, and the progress bar to
- * match. Colour rather than chrome — no gradient, no shadow, and the name
- * stays in the text colour, where a palette hue would not clear contrast.
+ * Each tier is a moulded capsule in its own colour, so the ladder reads as six
+ * bright objects rather than six rules of text — the presentation the Hub app's
+ * other games use. The stylesheet owns the shape; every colour in it is a
+ * custom property set on the row from the tier's one palette colour
+ * (`tierSurface` in render/theme.ts), including the label ink, which is chosen
+ * for contrast against both ends of the gradient.
  */
 .tier__button {
-  border-left: 4px solid var(--tier-color, transparent);
-  background: var(--tier-wash, transparent);
-}
-
-.tier__button:hover {
-  background: var(--tier-wash, var(--cell-bg));
-  filter: brightness(0.97);
-}
-
-.tier__button {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas:
     'name size progress'
-    'bar bar bar'
     'unlock unlock unlock';
   align-items: baseline;
   column-gap: var(--space-3);
   width: 100%;
-  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-3);
+  padding: var(--tier-pad-y) var(--space-4);
+  border-radius: var(--radius-capsule);
+  background: linear-gradient(
+    180deg,
+    var(--tier-top, var(--tier-color)) 0%,
+    var(--tier-face, var(--tier-color)) 52%,
+    var(--tier-bottom, var(--tier-color)) 100%
+  );
+  color: var(--tier-ink, var(--on-accent));
   text-align: left;
+  /* Light along the top edge, pooling in the bottom of the mould; then the
+     3px edge the capsule stands on, and its shadow on the page. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -7px 10px -7px rgba(0, 0, 0, 0.4),
+    0 3px 0 var(--tier-edge),
+    0 6px 12px rgba(0, 0, 0, 0.18);
+  transition:
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
 }
 
-.tier--locked {
-  opacity: 0.4;
+/* The focus ring is shared chrome and squares off whatever it lands on. */
+.tier__button:focus-visible {
+  border-radius: var(--radius-capsule);
 }
 
-.tier__button--locked {
+.tier__button:hover {
+  filter: brightness(1.04);
+}
+
+/* Pressing it puts the capsule down on its edge. */
+.tier__button:active {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -7px 10px -7px rgba(0, 0, 0, 0.4),
+    0 0 0 var(--tier-edge),
+    0 2px 5px rgba(0, 0, 0, 0.18);
+}
+
+/*
+ * A locked tier keeps its shape and loses its colour — the grey it is moulded
+ * from comes from `lockedTierSurface()`, not from a filter or an opacity, both
+ * of which would let the artwork through and take the unlock line with them.
+ */
+.tier--locked .tier__button {
   cursor: default;
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 2px 0 var(--tier-edge),
+    0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 .tier__name {
   grid-area: name;
-  font-size: 17px;
-  font-weight: 500;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .tier__size {
   grid-area: size;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .tier__progress {
   grid-area: progress;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.85;
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * The progress strip lies along the bottom of the capsule rather than taking a
+ * row of its own, so six capsules still fit a phone without scrolling. It stops
+ * short of the corners, where the radius would swallow the first few percent.
+ */
 .tier__bar {
-  grid-area: bar;
-  height: 2px;
-  margin-top: var(--space-2);
-  background: var(--grid-line);
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--tier-bar-bottom);
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--tier-track, var(--grid-line));
 }
 
 .tier__bar-fill {
   height: 100%;
-  background: var(--tier-color, var(--accent));
+  border-radius: inherit;
+  background: var(--tier-fill, var(--tier-color, var(--accent)));
 }
 
 .tier__lock {
@@ -239,7 +364,8 @@
   margin-top: var(--space-1);
   padding-left: 20px;
   font-size: 12px;
-  color: var(--text-secondary);
+  font-weight: 500;
+  opacity: 0.9;
 }
 
 .home__footer {
@@ -249,10 +375,20 @@
   padding-top: var(--space-3);
 }
 
+/* A modern phone has slack above and below the ladder; spend it on the
+   capsules rather than leaving it as white space. */
+@media (min-height: 780px) {
+  .screen--home {
+    --tier-gap: 12px;
+    --tier-pad-y: var(--space-4);
+    --tier-bar-bottom: 8px;
+  }
+}
+
 /* The last of the slack, for the shortest phones still in use. */
 @media (max-height: 700px) {
   .home__header {
-    padding-top: var(--space-3);
+    padding-top: max(0px, calc(var(--space-3) - var(--inset-top)));
   }
 
   .home__mark {
@@ -268,9 +404,14 @@
     font-size: 12px;
   }
 
-  .tier__button {
-    padding-top: var(--space-2);
-    padding-bottom: var(--space-2);
+  .screen--home {
+    --tier-gap: 8px;
+    --tier-pad-y: var(--space-2);
+    --tier-bar-bottom: 3px;
+  }
+
+  .tier__name {
+    font-size: 17px;
   }
 }
 
@@ -288,8 +429,8 @@
     font-size: 21px;
   }
 
-  .tier__bar {
-    margin-top: var(--space-1);
+  .screen--home {
+    --tier-gap: 6px;
   }
 }
 
@@ -302,6 +443,14 @@
   padding-bottom: var(--space-5);
 }
 
+/*
+ * A hundred tiles cover the whole screen — the whole gradient with it — so they
+ * are the one surface that can be neither an opaque neutral (the artwork would
+ * be gone) nor a clear one (their numbers would read at the top of the screen
+ * and vanish at the foot of it). An open level is a dark well over the picture,
+ * the same one wherever it lands, so one ink serves the grid; a solved one is
+ * filled in with its tier's colour, the same capsule the tier was opened from.
+ */
 .level-tile {
   display: flex;
   align-items: center;
@@ -311,31 +460,45 @@
   aspect-ratio: 1;
   min-height: 44px;
   border-radius: var(--radius-tile);
-  background: var(--cell-bg);
-  color: var(--text);
+  background: rgba(4, 16, 39, 0.52);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  color: var(--ink-on-art);
+  text-shadow: var(--ink-shadow);
   font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
 
 .level-tile--solved {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: linear-gradient(
+    180deg,
+    var(--tier-top) 0%,
+    var(--tier-face) 52%,
+    var(--tier-bottom) 100%
+  );
+  color: var(--tier-ink);
+  text-shadow: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 2px 0 var(--tier-edge);
 }
 
+/* Solved with a hint: the tier's colour as a ring rather than a fill. */
 .level-tile--hinted {
-  background: var(--bg);
-  border: 1.5px solid var(--accent);
-  color: var(--text);
+  background: rgba(4, 16, 39, 0.52);
+  color: var(--ink-on-art);
+  box-shadow: inset 0 0 0 2px var(--tier-face);
 }
 
 .level-tile--suggested {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 2px var(--ink-on-art);
 }
 
+/* Faint, but its own well all the same: at the foot of the screen the picture
+   is near white, and a wash any lighter than this loses the number in it. */
 .level-tile--locked {
-  background: transparent;
-  color: var(--disabled);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  background: rgba(4, 16, 39, 0.42);
+  color: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .level-tile__dot {
@@ -345,7 +508,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--ink-on-art);
 }
 
 /* ---- Play -------------------------------------------------------------- */
@@ -378,6 +541,12 @@
   user-select: none;
   -webkit-user-select: none;
   border-radius: var(--radius-tile);
+  /* The board's own 2px border is a hairline neutral, which disappears against
+     the artwork. This is the edge that separates the two, and the shadow that
+     lifts the board off the picture. */
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.32),
+    0 10px 28px rgba(0, 0, 0, 0.45);
 }
 
 .stats {
@@ -385,11 +554,20 @@
   justify-content: center;
   gap: var(--space-2);
   font-size: 14px;
-  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
-.stat + .stat::before {
+/*
+ * The two counters are the live region; the clock sits outside it so its
+ * ticking is not announced. They still lay out as one row of three.
+ */
+.stats__counts {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.stat + .stat::before,
+.stats__counts + .stat::before {
   content: '·';
   margin-right: var(--space-2);
 }
@@ -410,12 +588,13 @@
   min-width: 44px;
   min-height: 44px;
   padding: var(--space-1) var(--space-2);
-  color: var(--text);
   font-size: 12px;
 }
 
+/* A shade less faint than the spec's 35%: on the artwork, 35% of white with
+   its outline fading too is not "disabled", it is gone. */
 .tool--disabled {
-  opacity: 0.35;
+  opacity: 0.45;
   cursor: default;
 }
 
@@ -464,8 +643,14 @@
     text-align: center;
   }
 
+  .stats__counts {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
   /* The dot separators only make sense on one line. */
-  .stats .stat + .stat::before {
+  .stats .stat + .stat::before,
+  .stats .stats__counts + .stat::before {
     content: none;
     margin-right: 0;
   }

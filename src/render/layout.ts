@@ -27,6 +27,9 @@ export function computeCellPx(
   viewportHeight: number,
   size: number,
 ): number {
+  // The board lives in a column that stops growing at `maxContentWidth`, so
+  // that is the width it has to fit, not the window's.
+  const width = Math.min(viewportWidth, BOARD_LAYOUT.maxContentWidth);
   const landscape = isLandscape(viewportWidth, viewportHeight);
   const padX = landscape
     ? BOARD_LAYOUT.landscapePaddingX
@@ -34,7 +37,7 @@ export function computeCellPx(
   const padY = landscape
     ? BOARD_LAYOUT.landscapePaddingY
     : BOARD_LAYOUT.viewportPaddingY;
-  const available = Math.min(viewportWidth - padX, viewportHeight - padY);
+  const available = Math.min(width - padX, viewportHeight - padY);
   const raw = Math.floor(available / size);
   return Math.max(
     BOARD_LAYOUT.minCellPx,

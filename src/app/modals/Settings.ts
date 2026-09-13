@@ -91,6 +91,13 @@ function segmented(
     attrs: { role: 'radiogroup', 'aria-label': label },
   });
 
+  const choose = (button: HTMLButtonElement, value: string): void => {
+    for (const other of buttons) {
+      other.setAttribute('aria-checked', String(other === button));
+    }
+    onSelect(value);
+  };
+
   const buttons = options.map((option) => {
     const button = el('button', {
       class: 'segmented__option',
@@ -101,15 +108,37 @@ function segmented(
         'aria-checked': option.value === selected,
       },
     });
-    button.addEventListener('click', () => {
-      for (const other of buttons) {
-        other.setAttribute('aria-checked', String(other === button));
-      }
-      onSelect(option.value);
-    });
+    button.addEventListener('click', () => choose(button, option.value));
     return button;
   });
   for (const button of buttons) group.append(button);
+
+  /*
+   * A radiogroup is expected to move between its options with the arrow keys,
+   * which is how a screen-reader user reaches them: the role announces radios,
+   * so Tab landing on each one separately is not what is announced. Selection
+   * follows focus, as it does for radios, and the ends wrap.
+   */
+  group.addEventListener('keydown', (event: KeyboardEvent) => {
+    const step =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? 1
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? -1
+          : 0;
+    if (step === 0) return;
+
+    const current = buttons.findIndex((b) => b === document.activeElement);
+    if (current < 0) return;
+
+    const next = buttons[(current + step + buttons.length) % buttons.length];
+    const value = options[buttons.indexOf(next as HTMLButtonElement)]?.value;
+    if (!next || value === undefined) return;
+
+    event.preventDefault();
+    next.focus();
+    choose(next, value);
+  });
 
   return el('div', { class: 'settings__row' }, [
     el('span', { class: 'settings__label', text: label }),

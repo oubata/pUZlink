@@ -45,8 +45,8 @@ describe('web app manifest (spec 14.2)', () => {
   });
 
   it('uses the light-theme background from the spec 10 palette', () => {
-    expect(PWA_MANIFEST.background_color).toBe('#FFFFFF');
-    expect(PWA_MANIFEST.theme_color).toBe('#FFFFFF');
+    expect(PWA_MANIFEST.background_color).toBe('#0A2A63');
+    expect(PWA_MANIFEST.theme_color).toBe('#0A2A63');
   });
 
   it('declares the two sizes and the maskable variant installers want', () => {
