@@ -11,51 +11,44 @@
 .topbar__title,
 .topbar__trailing,
 .screen--home > .home__header,
+.screen--home > .home__top .icon-button,
 .screen > .topbar > .icon-button {
   color: var(--ink-on-art);
   text-shadow: var(--ink-shadow);
 }
 
+.screen--home > .home__top .icon-button svg,
 .screen > .topbar > .icon-button svg {
   filter: var(--ink-drop);
 }
 
 /*
  * Down in the lit foot of the picture: the mirror of it. The stats and toolbar
- * sit under the board, and the Home footer on the last eighth of the screen —
- * both in the near-white region, where white ink survives on a tenth of the
- * pixels.
+ * sit under the board, in the near-white region where white ink survives on a
+ * tenth of the pixels.
  *
- * Buttons are listed one by one on purpose: a button inherits neither the
- * outline from the row it sits in nor its colour, since .text-button and
- * .icon-button set a colour of their own.
+ * Home's own controls used to be here too, in a footer. They moved to the top
+ * of the screen on 2026-09-14 — the hub's ad banner was eating the last eighth
+ * of the viewport and taking them with it — so they take the deep-blue ink
+ * above instead.
  */
-.screen--home > .home__footer,
-.screen--home > .home__footer .text-button,
-.screen--home > .home__footer .icon-button {
-  color: var(--ink-on-lit-art);
-  text-shadow: var(--ink-lit-shadow);
-}
-
-/* The two smallest things on the app, over the busiest part of the picture. */
 .stats,
 .tool {
   color: var(--ink-on-lit-art);
   text-shadow: var(--ink-lit-shadow-heavy);
 }
 
-.screen--home > .home__footer .icon-button svg,
 .tool__icon svg {
   filter: var(--ink-lit-drop);
 }
 
 /* The focus ring takes the colour of whichever ink it is following. */
+.screen--home > .home__top button:focus-visible,
 .screen > .topbar > .icon-button:focus-visible,
 .tier__button:focus-visible {
   outline-color: var(--ink-on-art);
 }
 
-.screen--home > .home__footer button:focus-visible,
 .tool:focus-visible {
   outline-color: var(--ink-on-lit-art);
 }
@@ -111,8 +104,8 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
-.screen--home > .home__footer .icon-button:hover {
-  background: rgba(0, 0, 0, 0.1);
+.screen--home > .home__top .icon-button:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .text-button {
@@ -368,11 +361,26 @@
   opacity: 0.9;
 }
 
-.home__footer {
+/*
+ * The hub pill on the left, How-to-play and Settings hard right. The spacer stands in
+ * for the pill outside the hub so the tools do not drift left in a standalone build.
+ */
+.home__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: var(--space-3);
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+.home__top-spacer {
+  flex: 1;
+}
+
+.home__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 /* A modern phone has slack above and below the ladder; spend it on the

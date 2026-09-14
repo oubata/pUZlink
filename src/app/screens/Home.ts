@@ -25,30 +25,41 @@ export interface HomeProps {
 export function createHome(props: HomeProps): View {
   const rows = TIERS.map((tier) => tierRow(tier, props));
 
+  /*
+   * How to play and Settings live at the TOP of Home (Tob, 2026-09-14).
+   *
+   * They used to be a footer under the ladder. Inside the pUZles hub the ad banner takes
+   * the bottom ~60px of the viewport, and with six tiers above them the footer fell off
+   * the end of the screen — the two controls were simply gone unless you knew to scroll.
+   * Up here they share the row with the hub pill and cannot be pushed anywhere.
+   *
+   * The hub pill returns null outside the hub, and the spacer keeps the cluster hard
+   * right either way rather than letting it slide left in a standalone build.
+   */
   const root = el('main', { class: 'screen screen--home' }, [
-    // Back to the hub, when the hub launched us; null otherwise (§11.5.2). Above the
-    // branding header rather than inside it, which is centred.
-    hubReturnButton(),
+    el('div', { class: 'home__top' }, [
+      hubReturnButton() ?? el('span', { class: 'home__top-spacer' }),
+      el('div', { class: 'home__tools' }, [
+        el('button', {
+          class: 'icon-button',
+          html: ICONS.help,
+          attrs: { type: 'button', 'aria-label': S.howToPlay },
+          on: { click: props.onHowToPlay },
+        }),
+        el('button', {
+          class: 'icon-button',
+          html: ICONS.gear,
+          attrs: { type: 'button', 'aria-label': S.settings },
+          on: { click: props.onSettings },
+        }),
+      ]),
+    ]),
     el('header', { class: 'home__header' }, [
       el('div', { class: 'home__mark', html: APP_MARK }),
       el('h1', { class: 'home__title', text: APP_NAME }),
       el('p', { class: 'home__tagline', text: S.tagline }),
     ]),
     el('ul', { class: 'tiers' }, rows),
-    el('footer', { class: 'home__footer' }, [
-      el('button', {
-        class: 'text-button',
-        text: S.howToPlay,
-        attrs: { type: 'button' },
-        on: { click: props.onHowToPlay },
-      }),
-      el('button', {
-        class: 'icon-button',
-        html: ICONS.gear,
-        attrs: { type: 'button', 'aria-label': S.settings },
-        on: { click: props.onSettings },
-      }),
-    ]),
   ]);
 
   return { el: root };
