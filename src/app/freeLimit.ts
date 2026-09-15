@@ -51,3 +51,23 @@ export function isTierPaywalled(tier: TierId): boolean {
 export function __setFreeLimitForTest(value: boolean | null): void {
   limited = value;
 }
+
+interface HubPrompt {
+  __puzlesUnlockPrompt?: (reason: 'locked' | 'finished') => void;
+}
+
+/**
+ * Ask the pUZles hub to make its offer.
+ *
+ * A free player who reached the wall used to tap a padlock and get nothing back at all.
+ * The sheet itself belongs to the hub (`scripts/hub-return.js`) so that all five games
+ * say the same thing; this is only the doorbell. Outside the hub the hook is absent and
+ * this does nothing, which is the same rule the rest of this module follows.
+ *
+ * 'finished' is for the moment the last free level is SOLVED, 'locked' for a padlock
+ * that was tapped. The hub words them differently: one is a congratulation, the other an
+ * explanation.
+ */
+export function promptUnlock(reason: 'locked' | 'finished' = 'locked'): void {
+  (globalThis as HubPrompt).__puzlesUnlockPrompt?.(reason);
+}

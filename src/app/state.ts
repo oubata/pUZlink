@@ -1,5 +1,5 @@
 import type { TierId } from '../engine/types';
-import { isPaywalled } from './freeLimit';
+import { isPaywalled, promptUnlock } from './freeLimit';
 
 export interface WonResult {
   elapsedMs: number;
@@ -68,7 +68,10 @@ export class AppStateMachine {
     // resumed board all arrive here. Past it the player lands on that tier's grid,
     // where the padlock and its label say why.
     if (isPaywalled(tier, index)) {
+      // Next after level 20 arrives here too, so this is the just-finished moment: ask
+      // while the win is fresh instead of bouncing onto padlocks in silence.
       this.set({ screen: { name: 'levelSelect', tier }, modal: null });
+      promptUnlock('finished');
       return;
     }
     this.set({ screen: { name: 'playing', tier, index }, modal: null });

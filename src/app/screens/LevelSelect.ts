@@ -11,6 +11,7 @@ import {
   solvedCount,
   solvedRecord,
 } from '../progress';
+import { promptUnlock } from '../freeLimit';
 import { S } from '../strings';
 
 export interface LevelSelectProps {
@@ -99,8 +100,13 @@ function tile(
         ? S.levelHubLockedLabel(index)
         : S.levelLockedLabel(index);
 
-  // A locked tile is a disabled button: dimmed, unclickable, and skipped by
+  // A progress-locked tile is a disabled button: dimmed, unclickable, and skipped by
   // Tab rather than trapping a keyboard user on something that does nothing.
+  //
+  // A hub-locked one stays live, because there IS something to say — the tap is how the
+  // player asks what the padlock means, and the hub answers with its offer.
+  const hubLocked =
+    !unlocked && lockReason(props.progress, tier.id, index) === 'hub';
   const button = el(
     'button',
     {
@@ -108,9 +114,13 @@ function tile(
       attrs: {
         type: 'button',
         'aria-label': label,
-        ...(unlocked ? {} : { disabled: 'true' }),
+        ...(unlocked || hubLocked ? {} : { disabled: 'true' }),
       },
-      ...(unlocked ? { on: { click: () => props.onLevel(index) } } : {}),
+      ...(unlocked
+        ? { on: { click: () => props.onLevel(index) } }
+        : hubLocked
+          ? { on: { click: () => promptUnlock() } }
+          : {}),
     },
     [el('span', { class: 'level-tile__number', text: String(index) })],
   );

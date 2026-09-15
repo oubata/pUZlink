@@ -12,7 +12,7 @@ import {
   withAlpha,
 } from '../../render/theme';
 import { isUnlocked, solvedCount } from '../progress';
-import { isTierPaywalled } from '../freeLimit';
+import { isTierPaywalled, promptUnlock } from '../freeLimit';
 import { S } from '../strings';
 
 export interface HomeProps {
@@ -108,24 +108,28 @@ function tierRow(tier: TierConfig, props: HomeProps): HTMLElement {
 
   // No aria-label: the row's own text already reads "Easy 5×5 0/100", and an
   // added label that does not contain the visible text confuses voice control.
-  const inner = unlocked
-    ? el(
-        'button',
-        {
-          class: 'tier__button',
-          attrs: { type: 'button' },
-          on: { click: () => props.onTier(tier.id) },
-        },
-        content,
-      )
-    : el(
-        'div',
-        {
-          class: 'tier__button tier__button--locked',
-          attrs: { 'aria-disabled': 'true' },
-        },
-        content,
-      );
+  const hubLocked = !unlocked && isTierPaywalled(tier.id);
+  const inner =
+    unlocked || hubLocked
+      ? el(
+          'button',
+          {
+            class: 'tier__button',
+            attrs: { type: 'button' },
+            on: {
+              click: () => (hubLocked ? promptUnlock() : props.onTier(tier.id)),
+            },
+          },
+          content,
+        )
+      : el(
+          'div',
+          {
+            class: 'tier__button tier__button--locked',
+            attrs: { 'aria-disabled': 'true' },
+          },
+          content,
+        );
 
   // Every part of the capsule — face, highlight, moulded edge, label and
   // progress strip — is derived from the tier's one palette colour and handed
