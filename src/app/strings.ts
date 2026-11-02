@@ -61,6 +61,7 @@ export const S = {
   pausedTitle: 'Paused',
   resume: 'Resume',
   levelList: 'Level list',
+  home: 'Home',
 
   // Won
   solved: 'Solved',

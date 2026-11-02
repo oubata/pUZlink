@@ -364,6 +364,12 @@ export class App {
             if (screen.name === 'playing')
               this.machine.toLevelSelect(screen.tier);
           },
+          // Saved first, exactly as Level list does: leaving by either row keeps the
+          // board, so a half-drawn level is still there on the way back in.
+          onHome: () => {
+            this.savePlayState();
+            this.machine.toHome();
+          },
           onHowToPlay: () => this.machine.openModal('howToPlay'),
         });
       case 'settings':

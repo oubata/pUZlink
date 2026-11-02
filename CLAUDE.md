@@ -29,7 +29,11 @@
 
 ### Navigation (2026-11-01)
 
-**No Settings row on the Paused card.** Spec 9 lists five ways out; there are now four.
+**The Paused card loses Settings and gains Home.** Spec 9 lists five ways out; there are
+still five, but not the same five. Settings went as irrelevant mid-level (it stays on Home);
+Home arrived because pUZlink was the only one of the five games with no way out to Home from
+the card — found on device, 2026-11-02. Home saves the board first, exactly as Level list
+does, so a half-drawn level survives the trip.
 Tob removed Settings as irrelevant mid-level — it stays on Home. `Level list` keeps its
 place, being actual navigation. `tests/app/modals.test.ts` asserts the exact button list,
 so the absence is a decision the suite enforces rather than something that can drift back.

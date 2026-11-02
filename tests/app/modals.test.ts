@@ -292,13 +292,14 @@ describe('Won card (spec 9)', () => {
 });
 
 describe('Paused card (spec 9)', () => {
-  it('hides the board and offers the four ways out', () => {
+  it('hides the board and offers the five ways out', () => {
     const pressed: string[] = [];
     const view = createPaused({
       elapsedMs: 84_000,
       onResume: () => pressed.push('resume'),
       onRestart: () => pressed.push('restart'),
       onLevelList: () => pressed.push('levels'),
+      onHome: () => pressed.push('home'),
       onHowToPlay: () => pressed.push('howto'),
     });
     const root = mount(view);
@@ -309,7 +310,7 @@ describe('Paused card (spec 9)', () => {
       [...root.querySelectorAll('button')].map((b) => b.textContent),
     // Settings deliberately absent (2026-11-01): it is not a mid-level concern, and it
     // stays on Home. Asserting the exact list is what makes that a decision, not a drift.
-    ).toEqual(['Resume', 'Restart', 'Level list', 'How to play']);
+    ).toEqual(['Resume', 'Restart', 'Level list', 'Home', 'How to play']);
     root.remove();
   });
 
@@ -320,6 +321,7 @@ describe('Paused card (spec 9)', () => {
       onResume: () => pressed.push('resume'),
       onRestart: noop,
       onLevelList: noop,
+      onHome: noop,
       onHowToPlay: noop,
     });
     const root = mount(view);
