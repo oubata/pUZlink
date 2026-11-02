@@ -363,7 +363,6 @@ export class App {
             if (screen.name === 'playing')
               this.machine.toLevelSelect(screen.tier);
           },
-          onSettings: () => this.machine.openModal('settings'),
           onHowToPlay: () => this.machine.openModal('howToPlay'),
         });
       case 'settings':

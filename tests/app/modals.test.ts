@@ -292,14 +292,13 @@ describe('Won card (spec 9)', () => {
 });
 
 describe('Paused card (spec 9)', () => {
-  it('hides the board and offers the five ways out', () => {
+  it('hides the board and offers the four ways out', () => {
     const pressed: string[] = [];
     const view = createPaused({
       elapsedMs: 84_000,
       onResume: () => pressed.push('resume'),
       onRestart: () => pressed.push('restart'),
       onLevelList: () => pressed.push('levels'),
-      onSettings: () => pressed.push('settings'),
       onHowToPlay: () => pressed.push('howto'),
     });
     const root = mount(view);
@@ -308,7 +307,9 @@ describe('Paused card (spec 9)', () => {
     expect(root.querySelector('.modal__time')?.textContent).toBe('1:24');
     expect(
       [...root.querySelectorAll('button')].map((b) => b.textContent),
-    ).toEqual(['Resume', 'Restart', 'Level list', 'Settings', 'How to play']);
+    // Settings deliberately absent (2026-11-01): it is not a mid-level concern, and it
+    // stays on Home. Asserting the exact list is what makes that a decision, not a drift.
+    ).toEqual(['Resume', 'Restart', 'Level list', 'How to play']);
     root.remove();
   });
 
@@ -319,7 +320,6 @@ describe('Paused card (spec 9)', () => {
       onResume: () => pressed.push('resume'),
       onRestart: noop,
       onLevelList: noop,
-      onSettings: noop,
       onHowToPlay: noop,
     });
     const root = mount(view);

@@ -8,11 +8,15 @@ export interface PausedProps {
   onResume(): void;
   onRestart(): void;
   onLevelList(): void;
-  onSettings(): void;
   onHowToPlay(): void;
 }
 
-/** Hides the board behind it, both to prevent clock-watching and per spec 9. */
+/**
+ * Hides the board behind it, both to prevent clock-watching and per spec 9.
+ *
+ * No Settings row (2026-11-01): mid-level is not where anyone goes looking for it. Tob's
+ * call; Settings is still on Home. Level list stays — that one IS navigation.
+ */
 export function createPaused(props: PausedProps): View {
   return createModal(
     { title: S.pausedTitle, cover: true, onClose: props.onResume },
@@ -22,7 +26,6 @@ export function createPaused(props: PausedProps): View {
         pillButton(S.resume, props.onResume),
         pillButton(S.restart, props.onRestart, 'text'),
         pillButton(S.levelList, props.onLevelList, 'text'),
-        pillButton(S.settings, props.onSettings, 'text'),
         pillButton(S.howToPlay, props.onHowToPlay, 'text'),
       ]),
     ],

@@ -24,3 +24,16 @@
 - All user-facing text goes through `src/app/strings.ts`. All tunables go in `src/app/config.ts` or `src/generator/difficulty.ts`.
 - Commit at the end of every phase with a message `phase N: <milestone name>`; smaller commits within a phase are welcome.
 - Never bump `GENERATOR_VERSION` without adding a changelog line to the spec and telling Tob.
+
+## Deviations from spec
+
+### Navigation (2026-11-01)
+
+**No Settings row on the Paused card.** Spec 9 lists five ways out; there are now four.
+Tob removed Settings as irrelevant mid-level — it stays on Home. `Level list` keeps its
+place, being actual navigation. `tests/app/modals.test.ts` asserts the exact button list,
+so the absence is a decision the suite enforces rather than something that can drift back.
+
+The header back arrow needed no change: `App.ts` already wires `onBack` to
+`toLevelSelect(tierId)`, separately from `onPause`, which is the behaviour the other games
+were changed to adopt. Hardware back still raises the Paused card.
