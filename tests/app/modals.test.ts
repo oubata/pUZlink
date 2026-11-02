@@ -292,15 +292,13 @@ describe('Won card (spec 9)', () => {
 });
 
 describe('Paused card (spec 9)', () => {
-  it('hides the board and offers the five ways out', () => {
+  it('hides the board and offers the three ways out', () => {
     const pressed: string[] = [];
     const view = createPaused({
       elapsedMs: 84_000,
       onResume: () => pressed.push('resume'),
       onRestart: () => pressed.push('restart'),
-      onLevelList: () => pressed.push('levels'),
       onHome: () => pressed.push('home'),
-      onHowToPlay: () => pressed.push('howto'),
     });
     const root = mount(view);
 
@@ -308,9 +306,10 @@ describe('Paused card (spec 9)', () => {
     expect(root.querySelector('.modal__time')?.textContent).toBe('1:24');
     expect(
       [...root.querySelectorAll('button')].map((b) => b.textContent),
-    // Settings deliberately absent (2026-11-01): it is not a mid-level concern, and it
-    // stays on Home. Asserting the exact list is what makes that a decision, not a drift.
-    ).toEqual(['Resume', 'Restart', 'Level list', 'Home', 'How to play']);
+    // Settings, Level list and How to play are all deliberately absent: every game's
+    // hardware-back card is these three rows and nothing else (2026-11-02). Asserting the
+    // exact list is what makes that a decision rather than a drift.
+    ).toEqual(['Resume', 'Restart', 'Home']);
     root.remove();
   });
 
@@ -320,9 +319,7 @@ describe('Paused card (spec 9)', () => {
       elapsedMs: 0,
       onResume: () => pressed.push('resume'),
       onRestart: noop,
-      onLevelList: noop,
       onHome: noop,
-      onHowToPlay: noop,
     });
     const root = mount(view);
     root
@@ -389,7 +386,7 @@ describe('Confirm dialogs (spec 5.5)', () => {
 
 describe('modal identity and keyboard conventions', () => {
   it('gives two modals with the same title different heading ids', () => {
-    // 'How to play' is both a Paused button and a modal heading; 'Restart' is
+    // 'How to play' is both a Home button and a modal heading; 'Restart' is
     // both a tool and a confirmation. A title hash gave them the same id.
     const first = createConfirmRestart({ onConfirm: noop, onCancel: noop });
     const second = createConfirmRestart({ onConfirm: noop, onCancel: noop });

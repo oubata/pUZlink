@@ -7,17 +7,16 @@ export interface PausedProps {
   elapsedMs: number;
   onResume(): void;
   onRestart(): void;
-  onLevelList(): void;
   onHome(): void;
-  onHowToPlay(): void;
 }
 
 /**
  * Hides the board behind it, both to prevent clock-watching and per spec 9.
  *
- * No Settings row (2026-11-01): mid-level is not where anyone goes looking for it. Tob's
- * call; Settings is still on Home. Level list and Home stay — those ARE navigation, and
- * Home was missing here while the other four games all offered it (2026-11-02).
+ * Three rows, the same three every game offers (2026-11-02): Resume, Restart, Home.
+ * Settings, Level list and How to play all came off — mid-level is not where anyone goes
+ * looking for any of them. Settings and How to play are on Home; the level grid is one tap
+ * away on the ‹ in the header, which is where hierarchical back belongs anyway.
  */
 export function createPaused(props: PausedProps): View {
   return createModal(
@@ -27,9 +26,7 @@ export function createPaused(props: PausedProps): View {
       el('div', { class: 'modal__actions' }, [
         pillButton(S.resume, props.onResume),
         pillButton(S.restart, props.onRestart, 'text'),
-        pillButton(S.levelList, props.onLevelList, 'text'),
         pillButton(S.home, props.onHome, 'text'),
-        pillButton(S.howToPlay, props.onHowToPlay, 'text'),
       ]),
     ],
   );

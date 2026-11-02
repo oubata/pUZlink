@@ -27,16 +27,23 @@
 
 ## Deviations from spec
 
-### Navigation (2026-11-01)
+### Navigation (2026-11-01, revised 2026-11-02)
 
-**The Paused card loses Settings and gains Home.** Spec 9 lists five ways out; there are
-still five, but not the same five. Settings went as irrelevant mid-level (it stays on Home);
-Home arrived because pUZlink was the only one of the five games with no way out to Home from
-the card — found on device, 2026-11-02. Home saves the board first, exactly as Level list
-does, so a half-drawn level survives the trip.
-Tob removed Settings as irrelevant mid-level — it stays on Home. `Level list` keeps its
-place, being actual navigation. `tests/app/modals.test.ts` asserts the exact button list,
-so the absence is a decision the suite enforces rather than something that can drift back.
+**The Paused card is three rows: Resume, Restart, Home.** Spec 9 lists five ways out. It
+reached three in two steps, both Tob's call. Settings went first as irrelevant mid-level
+(it stays on Home). Then, after the five games were compared side by side on device, Level
+list and How to play went too, and Home — which pUZlink alone had been missing — arrived:
+the point was that every game's hardware-back card offer the same three rows, so the menu
+reads the same whichever game you are in.
+
+Nothing is orphaned by the two removals. How to play is on Home
+(`src/app/screens/Home.ts`), and the level grid is one tap away on the header `‹`, which is
+where hierarchical back belongs; the Won card still offers Level list as well. Home saves
+the board first, so a half-drawn level survives the trip out and back.
+
+`tests/app/modals.test.ts` asserts the exact button list in order, so the shape of this card
+is a decision the suite enforces rather than something that drifts — it is what caught the
+missing Home row on the way in.
 
 The header back arrow needed no change: `App.ts` already wires `onBack` to
 `toLevelSelect(tierId)`, separately from `onPause`, which is the behaviour the other games
