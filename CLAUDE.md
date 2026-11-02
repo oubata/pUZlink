@@ -36,4 +36,12 @@ so the absence is a decision the suite enforces rather than something that can d
 
 The header back arrow needed no change: `App.ts` already wires `onBack` to
 `toLevelSelect(tierId)`, separately from `onPause`, which is the behaviour the other games
-were changed to adopt. Hardware back still raises the Paused card.
+were changed to adopt.
+
+**Hardware back did need one, and was missed on the first pass.** `goBack()` sent `playing`
+straight to `toLevelSelect`, so the hardware button and the header arrow were the same
+gesture and a part-solved board could be abandoned by one stray press with nothing asked —
+pUZlink never raised the Paused card on back, unlike the other four. It now pauses instead,
+and a second press dismisses the card via the `modal !== null` branch. A just-won board
+still leaves: the screen stays `playing` until the won card appears and `pause()` refuses
+in that window, so pausing there would swallow the press entirely.

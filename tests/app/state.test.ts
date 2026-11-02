@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AppStateMachine, type WonResult } from '../../src/app/state';
+import { AppStateMachine, backAction, type WonResult } from '../../src/app/state';
 import { formatTime } from '../../src/app/format';
 
 const RESULT: WonResult = {
@@ -110,5 +110,37 @@ describe('time formatting', () => {
 
   it('never shows a negative clock', () => {
     expect(formatTime(-5000)).toBe('0:00');
+  });
+});
+
+describe('what a back press means', () => {
+  /*
+   * pUZlink shipped a hardware back that walked straight out of a part-solved level while
+   * the other four games asked first, and nothing caught it because the rule lived inside
+   * a private method with no test anywhere near it. These assert the rule itself.
+   */
+  it('pauses rather than abandoning a level in progress', () => {
+    expect(backAction('playing', false, false)).toBe('pause');
+  });
+
+  it('leaves a won board instead, which cannot be paused', () => {
+    // The screen stays `playing` until the won card appears; pausing there would refuse
+    // and the press would do nothing at all.
+    expect(backAction('playing', false, true)).toBe('toLevelSelect');
+    expect(backAction('won', false, false)).toBe('toLevelSelect');
+  });
+
+  it('dismisses whatever is open before touching the screen behind it', () => {
+    expect(backAction('playing', true, false)).toBe('closeModal');
+    expect(backAction('levelSelect', true, false)).toBe('closeModal');
+    expect(backAction('home', true, false)).toBe('closeModal');
+  });
+
+  it('steps out of the level grid to Home', () => {
+    expect(backAction('levelSelect', false, false)).toBe('toHome');
+  });
+
+  it('has nothing to say at Home, where the platform takes over', () => {
+    expect(backAction('home', false, false)).toBe('none');
   });
 });

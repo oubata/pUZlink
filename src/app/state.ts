@@ -135,3 +135,27 @@ export function sameScreen(a: Screen, b: Screen): boolean {
       return true;
   }
 }
+
+/**
+ * What a back press means, as a pure function of what is on screen.
+ *
+ * Extracted so it can be tested: the rule lived inside `goBack()`, where nothing reached
+ * it, and that is how pUZlink shipped a hardware back that walked out of a part-solved
+ * level while the other four games asked first. A rule worth getting right is worth a test
+ * that fails when it is wrong.
+ */
+export type BackAction = 'closeModal' | 'pause' | 'toHome' | 'toLevelSelect' | 'none';
+
+export function backAction(
+  screen: Screen['name'],
+  modalOpen: boolean,
+  won: boolean,
+): BackAction {
+  if (modalOpen) return 'closeModal';
+  if (screen === 'levelSelect') return 'toHome';
+  // A just-won board cannot pause — the screen stays `playing` until the won card
+  // appears — so it leaves instead, rather than swallowing the press.
+  if (screen === 'playing') return won ? 'toLevelSelect' : 'pause';
+  if (screen === 'won') return 'toLevelSelect';
+  return 'none';
+}

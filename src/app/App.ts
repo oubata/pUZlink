@@ -39,6 +39,7 @@ import {
   type ModalName,
   type Screen,
   type WonResult,
+  backAction,
 } from './state';
 
 export interface AppOptions {
@@ -472,18 +473,27 @@ export class App {
 
   /** What the back chevron does on each screen, driven by the back gesture. */
   private goBack(): void {
-    if (this.machine.modal !== null) {
-      this.closeOverlay();
-      return;
-    }
     const screen = this.machine.screen;
-    switch (screen.name) {
-      case 'levelSelect':
+    switch (backAction(screen.name, this.machine.modal !== null, this.play?.engine.won === true)) {
+      case 'closeModal':
+        this.closeOverlay();
+        return;
+      case 'toHome':
         this.machine.toHome();
         return;
-      case 'playing':
-      case 'won':
-        this.machine.toLevelSelect(screen.tier);
+      case 'pause':
+        /*
+         * Hardware back opens the Paused card; it does not walk out of the level. It used
+         * to go straight to toLevelSelect(), making it the same gesture as the header
+         * arrow, so one stray press abandoned a part-solved board with nothing asked. The
+         * arrow is the deliberate way out now; a second press dismisses the card.
+         */
+        this.pause();
+        return;
+      case 'toLevelSelect':
+        if (screen.name === 'playing' || screen.name === 'won') {
+          this.machine.toLevelSelect(screen.tier);
+        }
         return;
       default:
         return;
